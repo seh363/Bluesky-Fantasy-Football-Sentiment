@@ -23,7 +23,7 @@ yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
 
 # 3. Your Player List (You can expand this to hundreds of players later)
-nfl_players = ["Jahan Dotson", "Jayden Daniels", "Terry McLaurin", "Patrick Mahomes"]
+nfl_players = ["Jeremiyah Love", "Fernando Mendoza", "Carnell Tate", "Jordyn Tyson", "Makai Lemon", "KC Concepcion", "Kenyon Sadiq", "Eli Stowers", "Omar Cooper", "Jadarian Price", "Denzel Boston", "Jonah Coleman"]
 
 def process_player(player_name):
     print(f"Processing {player_name} for {target_date_str}...")
