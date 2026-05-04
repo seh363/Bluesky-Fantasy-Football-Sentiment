@@ -1,17 +1,26 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
+import os # <--- NEW: Import the OS library
 from supabase import create_client, Client
 
 # --- 1. Database Connection ---
-# st.cache_resource ensures we only connect to the database once, keeping the app fast
 @st.cache_resource
 def init_connection():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_ANON_KEY"]
+    # Try to get keys from Render's Environment Variables first
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_ANON_KEY")
+
+    # If they are blank (meaning you are running it locally on your laptop), fallback to st.secrets
+    if not url or not key:
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_ANON_KEY"]
+
     return create_client(url, key)
 
 supabase = init_connection()
+
+# ... (the rest of your app.py code stays exactly the same) ...
 
 # --- 2. Data Fetching ---
 # st.cache_data remembers the query results so it doesn't spam your database on every click
