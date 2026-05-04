@@ -68,7 +68,7 @@ def process_player(player_name):
         }
         
         # Insert the row into Supabase
-        supabase.table("daily_sentiment").insert(data_to_insert).execute()
+        supabase.table("daily_sentiment").upsert(data_to_insert).execute()
         print(f"Success: {player_name} | Sentiment: {average_sentiment:.3f} | Posts: {posts_analyzed}")
     else:
         print(f"No posts found for {player_name}.")
