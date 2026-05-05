@@ -109,7 +109,8 @@ if player_list:
             xaxis_title=None, 
             yaxis_title="Sentiment Score (-1 to 1)",
             hovermode="x unified", 
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
+            # Changed xanchor to 'left' and x to 0 to move it away from the toolbar
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0), 
             margin=dict(l=0, r=0, t=40, b=0) 
         )
         
