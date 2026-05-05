@@ -153,4 +153,14 @@ if player_list:
             with col_inc:
                 st.write("**📈 Top Increases (7-Day)**")
                 top_increases = movers_df.sort_values(by='7d_change', ascending=False).head(5)
-                st.dataframe(top_increases[['player_name', '
+                st.dataframe(top_increases[['player_name', 'average_sentiment', '7d_change']], hide_index=True)
+                
+            with col_dec:
+                st.write("**📉 Top Decreases (7-Day)**")
+                top_decreases = movers_df.sort_values(by='7d_change', ascending=True).head(5)
+                st.dataframe(top_decreases[['player_name', 'average_sentiment', '7d_change']], hide_index=True)
+        else:
+            st.info("Not enough historical data yet to calculate 7-day shifts. (Requires at least 2 days of data).")
+            
+else:
+    st.info("Awaiting initial data load. Ensure your database has populated.")
