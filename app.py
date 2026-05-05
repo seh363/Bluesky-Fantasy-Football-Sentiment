@@ -133,17 +133,22 @@ if player_list:
         # Filter the database to just the last 7 days
         recent_df = all_df[all_df['date'] >= seven_days_ago].copy()
         
-        # Calculate the shift between the first available day and last available day in that 7-day window
-        # Calculate the shift between the first available day and last available day in that 7-day window
-        def calc_shift(group):
-            if len(group) > 1:
-                return group.iloc[-1]['average_sentiment'] - group.iloc[0]['average_sentiment']
-            return None
-            
-        # Bulletproof dataframe formatting
-        shifts = recent_df.groupby('player_name').apply(calc_shift).reset_index()
-        shifts.columns = ['player_name', '7d_change']
-        shifts = shifts.dropna()
+        # Safely group the data without using .apply()
+        grouped = recent_df.groupby('player_name')['average_sentiment']
+        
+        # Get the chronological first and last scores, plus the count of days
+        first_scores = grouped.first()
+        last_scores = grouped.last()
+        day_counts = grouped.count()
+        
+        # Only calculate shifts for players who have at least 2 days of data
+        valid_players = day_counts[day_counts > 1].index
+        shifts_series = last_scores[valid_players] - first_scores[valid_players]
+        
+        # Convert to a clean DataFrame
+        shifts = shifts_series.reset_index()
+        if not shifts.empty:
+            shifts.columns = ['player_name', '7d_change']
         
         if not shifts.empty:
             # Merge back the current sentiment for context
