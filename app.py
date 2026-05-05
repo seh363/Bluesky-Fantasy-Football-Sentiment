@@ -120,7 +120,7 @@ if player_list:
         )
         
         fig.update_xaxes(
-            tickformat="%Y-%m-%d", # Cleaned up to just show the date since daily data doesn't need minutes
+            tickformat="%Y-%m-%d", 
             showgrid=False 
         )
 
@@ -154,20 +154,27 @@ if player_list:
             current_sentiment = recent_df.groupby('player_name').last().reset_index()[['player_name', 'average_sentiment']]
             movers_df = pd.merge(shifts, current_sentiment, on='player_name')
             
+            # Rename columns for the UI
+            movers_df = movers_df.rename(columns={
+                'player_name': 'Player',
+                'average_sentiment': 'Average Sentiment',
+                '7d_change': '7 Day Change'
+            })
+            
             # Formatting to 2 decimals
-            movers_df['average_sentiment'] = movers_df['average_sentiment'].round(2)
-            movers_df['7d_change'] = movers_df['7d_change'].round(2)
+            movers_df['Average Sentiment'] = movers_df['Average Sentiment'].round(2)
+            movers_df['7 Day Change'] = movers_df['7 Day Change'].round(2)
             
             col_inc, col_dec = st.columns(2)
             with col_inc:
                 st.write("**📈 Top Increases (7-Day)**")
-                top_increases = movers_df.sort_values(by='7d_change', ascending=False).head(5)
-                st.dataframe(top_increases[['player_name', 'average_sentiment', '7d_change']], hide_index=True)
+                top_increases = movers_df.sort_values(by='7 Day Change', ascending=False).head(5)
+                st.dataframe(top_increases[['Player', 'Average Sentiment', '7 Day Change']], hide_index=True)
                 
             with col_dec:
                 st.write("**📉 Top Decreases (7-Day)**")
-                top_decreases = movers_df.sort_values(by='7d_change', ascending=True).head(5)
-                st.dataframe(top_decreases[['player_name', 'average_sentiment', '7d_change']], hide_index=True)
+                top_decreases = movers_df.sort_values(by='7 Day Change', ascending=True).head(5)
+                st.dataframe(top_decreases[['Player', 'Average Sentiment', '7 Day Change']], hide_index=True)
         else:
             st.info("Not enough historical data yet to calculate 7-day shifts.")
             
@@ -175,23 +182,28 @@ if player_list:
         st.divider()
         st.subheader(f"Current Sentiment Extremes")
         
-        # Isolate just the most recent day of data across the whole league
         latest_day_df = all_df[all_df['date'] == latest_date].copy()
         
         if not latest_day_df.empty:
+            # Rename columns for the UI
+            latest_day_df = latest_day_df.rename(columns={
+                'player_name': 'Player',
+                'average_sentiment': 'Average Sentiment'
+            })
+            
             # Formatting to 2 decimals
-            latest_day_df['average_sentiment'] = latest_day_df['average_sentiment'].round(2)
+            latest_day_df['Average Sentiment'] = latest_day_df['Average Sentiment'].round(2)
             
             col_high, col_low = st.columns(2)
             with col_high:
                 st.write("**🔥 Highest Sentiment**")
-                highest = latest_day_df.sort_values(by='average_sentiment', ascending=False).head(5)
-                st.dataframe(highest[['player_name', 'average_sentiment']], hide_index=True)
+                highest = latest_day_df.sort_values(by='Average Sentiment', ascending=False).head(5)
+                st.dataframe(highest[['Player', 'Average Sentiment']], hide_index=True)
                 
             with col_low:
                 st.write("**🧊 Lowest Sentiment**")
-                lowest = latest_day_df.sort_values(by='average_sentiment', ascending=True).head(5)
-                st.dataframe(lowest[['player_name', 'average_sentiment']], hide_index=True)
+                lowest = latest_day_df.sort_values(by='Average Sentiment', ascending=True).head(5)
+                st.dataframe(lowest[['Player', 'Average Sentiment']], hide_index=True)
 
 else:
     st.info("Awaiting initial data load. Ensure your database has populated.")
