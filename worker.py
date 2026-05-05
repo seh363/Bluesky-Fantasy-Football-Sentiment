@@ -22,8 +22,13 @@ analyzer = SentimentIntensityAnalyzer()
 yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
 
-# 3. Your Player List (You can expand this to hundreds of players later)
-nfl_players = ["Jeremiyah Love", "Fernando Mendoza", "Carnell Tate", "Jordyn Tyson", "Makai Lemon", "KC Concepcion", "Kenyon Sadiq", "Eli Stowers", "Omar Cooper", "Jadarian Price", "Denzel Boston", "Jonah Coleman"]
+# Instead of a hardcoded list, fetch the active roster from Supabase
+response = supabase.table("tracked_players").select("player_name").execute()
+
+# Extract just the names into a Python list
+nfl_players = [row['player_name'] for row in response.data]
+
+print(f"Loaded {len(nfl_players)} players from database. Starting pipeline...")
 
 def process_player(player_name):
     print(f"Processing {player_name} for {target_date_str}...")
