@@ -134,12 +134,16 @@ if player_list:
         recent_df = all_df[all_df['date'] >= seven_days_ago].copy()
         
         # Calculate the shift between the first available day and last available day in that 7-day window
+        # Calculate the shift between the first available day and last available day in that 7-day window
         def calc_shift(group):
             if len(group) > 1:
                 return group.iloc[-1]['average_sentiment'] - group.iloc[0]['average_sentiment']
             return None
             
-        shifts = recent_df.groupby('player_name').apply(calc_shift).reset_index(name='7d_change').dropna()
+        # Bulletproof dataframe formatting
+        shifts = recent_df.groupby('player_name').apply(calc_shift).reset_index()
+        shifts.columns = ['player_name', '7d_change']
+        shifts = shifts.dropna()
         
         if not shifts.empty:
             # Merge back the current sentiment for context
