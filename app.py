@@ -6,7 +6,7 @@ import os
 from supabase import create_client, Client
 
 # --- Page Config (Must be the first Streamlit command) ---
-st.set_page_config(page_title="NFL Sentiment Dashboard", layout="wide")
+st.set_page_config(page_title="Bluesky NFL Player Sentiment", layout="wide")
 
 @st.cache_resource
 def init_connection():
@@ -32,26 +32,31 @@ def load_player_data(player):
     response = supabase.table("daily_sentiment").select("*").eq("player_name", player).execute()
     df = pd.DataFrame(response.data)
     if not df.empty:
-        # Convert to datetime and sort
         df['date'] = pd.to_datetime(df['date'])
         df = df.sort_values(by='date')
-        
-        # Calculate the 7-Day Simple Moving Average (SMA)
         df['7_Day_SMA'] = df['average_sentiment'].rolling(window=7, min_periods=1).mean()
-        
-        # Calculate day-over-day changes for the metric cards
         df['dod_change'] = df['average_sentiment'].diff()
     return df
 
+@st.cache_data(ttl=3600)
+def load_all_data():
+    # Fetch all data for the global movers board
+    response = supabase.table("daily_sentiment").select("*").execute()
+    df = pd.DataFrame(response.data)
+    if not df.empty:
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.sort_values(by=['player_name', 'date'])
+    return df
+
 # --- UI & Dashboard ---
-st.title("🏈 NFL Player Sentiment Analyzer")
-st.markdown("Track high-signal public sentiment shifts based on Bluesky discussions.")
+st.title("Bluesky NFL Player Sentiment")
+st.markdown("What the Official App of Sports Thinks")
 st.divider()
 
 player_list = get_available_players()
 
 if player_list:
-    # Use columns to put the search bar on the left, keeping the UI tight
+    # Use columns to put the search bar on the left
     col1, col2 = st.columns([1, 2])
     with col1:
         default_idx = player_list.index("Jahan Dotson") if "Jahan Dotson" in player_list else 0
@@ -84,7 +89,6 @@ if player_list:
         # --- Professional Plotly Chart ---
         fig = go.Figure()
 
-        # 1. The Raw Daily Sentiment (Faded out slightly)
         fig.add_trace(go.Scatter(
             x=df['date'], y=df['average_sentiment'], 
             mode='lines+markers',
@@ -93,7 +97,6 @@ if player_list:
             marker=dict(size=6)
         ))
 
-        # 2. The 7-Day Moving Average (Bold and clear)
         fig.add_trace(go.Scatter(
             x=df['date'], y=df['7_Day_SMA'], 
             mode='lines',
@@ -101,22 +104,53 @@ if player_list:
             line=dict(color='#1f77b4', width=4)
         ))
 
-        # Formatting the Layout
         fig.update_layout(
             title=f"Sentiment Momentum: {player_name}",
-            xaxis_title=None, # Cleaner without text explicitly saying "Date"
+            xaxis_title=None, 
             yaxis_title="Sentiment Score (-1 to 1)",
-            hovermode="x unified", # Shows all data for a specific day in one neat hover box
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), # Moves legend to top
-            margin=dict(l=0, r=0, t=40, b=0) # Tightens the margins
+            hovermode="x unified", 
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), 
+            margin=dict(l=0, r=0, t=40, b=0) 
         )
         
-        # Fix the X-Axis formatting (Forces YYYY-MM-DD HH:MM)
         fig.update_xaxes(
             tickformat="%Y-%m-%d %H:%M",
-            showgrid=False # Removes vertical grid lines for a cleaner look
+            showgrid=False 
         )
 
         st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("Awaiting initial data load. Ensure your database has populated.")
+        
+    # --- BOTTOM SECTION: Global Top Movers (7-Day Shift) ---
+    st.divider()
+    all_df = load_all_data()
+    
+    if not all_df.empty:
+        latest_date = all_df['date'].max()
+        seven_days_ago = latest_date - pd.Timedelta(days=7)
+        
+        st.subheader("Global Top Movers (Last 7 Days)")
+        
+        # Filter the database to just the last 7 days
+        recent_df = all_df[all_df['date'] >= seven_days_ago].copy()
+        
+        # Calculate the shift between the first available day and last available day in that 7-day window
+        def calc_shift(group):
+            if len(group) > 1:
+                return group.iloc[-1]['average_sentiment'] - group.iloc[0]['average_sentiment']
+            return None
+            
+        shifts = recent_df.groupby('player_name').apply(calc_shift).reset_index(name='7d_change').dropna()
+        
+        if not shifts.empty:
+            # Merge back the current sentiment for context
+            current_sentiment = recent_df.groupby('player_name').last().reset_index()[['player_name', 'average_sentiment']]
+            movers_df = pd.merge(shifts, current_sentiment, on='player_name')
+            
+            movers_df['average_sentiment'] = movers_df['average_sentiment'].round(3)
+            movers_df['7d_change'] = movers_df['7d_change'].round(3)
+            
+            col_inc, col_dec = st.columns(2)
+            with col_inc:
+                st.write("**📈 Top Increases (7-Day)**")
+                top_increases = movers_df.sort_values(by='7d_change', ascending=False).head(5)
+                st.dataframe(top_increases[['player_name', '
