@@ -1,10 +1,13 @@
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 import os
 from supabase import create_client, Client
 
-# --- 1. Database Connection ---
+# --- Page Config (Must be the first Streamlit command) ---
+st.set_page_config(page_title="NFL Sentiment Dashboard", layout="wide")
+
 @st.cache_resource
 def init_connection():
     url = os.environ.get("SUPABASE_URL")
@@ -16,95 +19,104 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- 2. Data Fetching Functions ---
 @st.cache_data(ttl=3600)
 def get_available_players():
-    # Fetch just the player names to populate our dropdown menu
     response = supabase.table("daily_sentiment").select("player_name").execute()
     df = pd.DataFrame(response.data)
     if not df.empty:
-        # Get unique names and sort them alphabetically
         return sorted(df['player_name'].unique().tolist())
-    return ["Jahan Dotson"] # Fallback if DB is empty
+    return []
 
 @st.cache_data(ttl=3600)
 def load_player_data(player):
-    # Fetch data for the specific player chosen in the dropdown
     response = supabase.table("daily_sentiment").select("*").eq("player_name", player).execute()
     df = pd.DataFrame(response.data)
     if not df.empty:
-        df['date'] = pd.to_datetime(df['date']).dt.date
+        # Convert to datetime and sort
+        df['date'] = pd.to_datetime(df['date'])
         df = df.sort_values(by='date')
+        
+        # Calculate the 7-Day Simple Moving Average (SMA)
+        df['7_Day_SMA'] = df['average_sentiment'].rolling(window=7, min_periods=1).mean()
+        
+        # Calculate day-over-day changes for the metric cards
+        df['dod_change'] = df['average_sentiment'].diff()
     return df
 
-@st.cache_data(ttl=3600)
-def load_all_data():
-    # Fetch all data so we can calculate the global top movers
-    response = supabase.table("daily_sentiment").select("*").execute()
-    df = pd.DataFrame(response.data)
-    if not df.empty:
-        df['date'] = pd.to_datetime(df['date']).dt.date
-        # Sort by player, then date, so the .diff() math calculates correctly
-        df = df.sort_values(by=['player_name', 'date'])
-    return df
+# --- UI & Dashboard ---
+st.title("🏈 NFL Player Sentiment Analyzer")
+st.markdown("Track high-signal public sentiment shifts based on Bluesky discussions.")
+st.divider()
 
-# --- 3. UI & Dashboard ---
-st.title("NFL Player Sentiment Analyzer")
-st.write("Track public sentiment over time based on Bluesky posts.")
-
-# Get the list of all players in the DB
 player_list = get_available_players()
 
-# NEW: Searchable Dropdown
-# If Jahan Dotson is in the database, make him the default, otherwise default to the first player in the list
-default_index = player_list.index("Jahan Dotson") if "Jahan Dotson" in player_list else 0
-player_name = st.selectbox("Search or Select a Player", options=player_list, index=default_index)
+if player_list:
+    # Use columns to put the search bar on the left, keeping the UI tight
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        default_idx = player_list.index("Jahan Dotson") if "Jahan Dotson" in player_list else 0
+        player_name = st.selectbox("Search or Select a Player", options=player_list, index=default_idx)
 
-if st.button("Analyze Player Trend"):
-    with st.spinner("Loading data..."):
-        
-        # --- TOP SECTION: Individual Player Trend ---
-        df = load_player_data(player_name)
-        
-        if df.empty:
-            st.warning(f"No data available for {player_name}.")
-        else:
-            fig = px.line(df, x='date', y='average_sentiment', 
-                          title=f"Sentiment Over Time: {player_name}",
-                          markers=True)
-            fig.add_hline(y=0, line_dash="dash", line_color="red")
-            fig.update_layout(yaxis_title="Average Sentiment Score (-1 to 1)", xaxis_title="Date")
-            st.plotly_chart(fig, use_container_width=True)
-
-# --- BOTTOM SECTION: Global Top Movers (Independent) ---
-st.divider() # Adds a nice visual line to separate the sections
-
-all_df = load_all_data()
-
-if not all_df.empty:
-    # Find the most recent date in the entire database
-    latest_date = all_df['date'].max()
-    st.subheader(f"Global Top Movers (Latest Data: {latest_date})")
+    df = load_player_data(player_name)
     
-    # Calculate day-over-day changes for EVERY player
-    all_df['sentiment_change'] = all_df.groupby('player_name')['average_sentiment'].diff()
-    
-    # Filter down to just the most recent day to see who moved the most *today*
-    latest_shifts = all_df[all_df['date'] == latest_date].dropna(subset=['sentiment_change']).copy()
-    
-    if not latest_shifts.empty:
-        latest_shifts['average_sentiment'] = latest_shifts['average_sentiment'].round(3)
-        latest_shifts['sentiment_change'] = latest_shifts['sentiment_change'].round(3)
+    if not df.empty:
+        latest_data = df.iloc[-1]
         
-        col_inc, col_dec = st.columns(2)
-        with col_inc:
-            st.write("**📈 Top Increases Across NFL**")
-            top_increases = latest_shifts.sort_values(by='sentiment_change', ascending=False).head(5)
-            st.dataframe(top_increases[['player_name', 'average_sentiment', 'sentiment_change']], hide_index=True)
-            
-        with col_dec:
-            st.write("**📉 Top Decreases Across NFL**")
-            top_decreases = latest_shifts.sort_values(by='sentiment_change', ascending=True).head(5)
-            st.dataframe(top_decreases[['player_name', 'average_sentiment', 'sentiment_change']], hide_index=True)
-    else:
-        st.info("Not enough historical data yet to calculate day-over-day global shifts. Check back tomorrow!")
+        # --- Top KPI Metric Cards ---
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.metric(
+                label="Current Sentiment Score", 
+                value=f"{latest_data['average_sentiment']:.3f}", 
+                delta=f"{latest_data['dod_change']:.3f}" if pd.notna(latest_data['dod_change']) else None
+            )
+        with m2:
+            st.metric(
+                label="7-Day Moving Average", 
+                value=f"{latest_data['7_Day_SMA']:.3f}"
+            )
+        with m3:
+            st.metric(
+                label="Posts Analyzed (Latest)", 
+                value=f"{latest_data['total_posts']:,}"
+            )
+
+        # --- Professional Plotly Chart ---
+        fig = go.Figure()
+
+        # 1. The Raw Daily Sentiment (Faded out slightly)
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['average_sentiment'], 
+            mode='lines+markers',
+            name='Daily Sentiment',
+            line=dict(color='rgba(150, 150, 150, 0.5)', width=2),
+            marker=dict(size=6)
+        ))
+
+        # 2. The 7-Day Moving Average (Bold and clear)
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=df['7_Day_SMA'], 
+            mode='lines',
+            name='7-Day Trend (SMA)',
+            line=dict(color='#1f77b4', width=4)
+        ))
+
+        # Formatting the Layout
+        fig.update_layout(
+            title=f"Sentiment Momentum: {player_name}",
+            xaxis_title=None, # Cleaner without text explicitly saying "Date"
+            yaxis_title="Sentiment Score (-1 to 1)",
+            hovermode="x unified", # Shows all data for a specific day in one neat hover box
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), # Moves legend to top
+            margin=dict(l=0, r=0, t=40, b=0) # Tightens the margins
+        )
+        
+        # Fix the X-Axis formatting (Forces YYYY-MM-DD HH:MM)
+        fig.update_xaxes(
+            tickformat="%Y-%m-%d %H:%M",
+            showgrid=False # Removes vertical grid lines for a cleaner look
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("Awaiting initial data load. Ensure your database has populated.")
