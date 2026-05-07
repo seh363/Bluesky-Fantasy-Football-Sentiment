@@ -89,7 +89,7 @@ if player_list:
 
     if selected_players:
         # --- CHART BUILDING ---
-        st.subheader("Sentiment Momentum Comparison")
+        st.subheader("Sentiment Comparison")
         fig = go.Figure()
         
         # Color palette for consistent comparison
