@@ -50,7 +50,7 @@ def load_all_data():
 # --- UI & Dashboard ---
 st.title("Bluesky NFL Player Sentiment")
 st.markdown('What the "Official App of Sports" Thinks')
-st.markdown('**Created by [Stephen Hoopes](https://bsky.app/profile/stephenhoopes.bsky.social)**')
+st.markdown('**Created by Stephen Hoopes** | [Bluesky Profile](https://bsky.app/profile/stephenhoopes.bsky.social) | [4for4 Articles](https://www.4for4.com/users/stephen-hoopes/author-page)')
 
 with st.expander("ℹ️ How to read these sentiment scores"):
     st.markdown("""
@@ -171,10 +171,10 @@ if player_list:
         if not shifts.empty:
             shifts.columns = ['Player', '7 Day Change']
             current = recent_df.groupby('player_name').last().reset_index()[['player_name', 'average_sentiment']]
-            current.columns = ['Player', 'Average Sentiment']
+            current.columns = ['Player', 'Current Sentiment']
             movers_df = pd.merge(shifts, current, on='Player')
             
-            movers_df['Average Sentiment'] = movers_df['Average Sentiment'].round(2)
+            movers_df['Current Sentiment'] = movers_df['Current Sentiment'].round(2)
             movers_df['7 Day Change'] = movers_df['7 Day Change'].round(2)
             
             c1, c2 = st.columns(2)
@@ -190,15 +190,15 @@ if player_list:
         st.subheader("Current Sentiment Extremes")
         latest_day = all_df[all_df['date'] == latest_date].copy()
         if not latest_day.empty:
-            latest_day = latest_day.rename(columns={'player_name': 'Player', 'average_sentiment': 'Average Sentiment'})
-            latest_day['Average Sentiment'] = latest_day['Average Sentiment'].round(2)
+            latest_day = latest_day.rename(columns={'player_name': 'Player', 'average_sentiment': 'Current Sentiment'})
+            latest_day['Current Sentiment'] = latest_day['Current Sentiment'].round(2)
             
             c_high, c_low = st.columns(2)
             with c_high:
                 st.write("**🔥 Highest Sentiment**")
-                st.dataframe(latest_day.sort_values(by='Average Sentiment', ascending=False).head(5)[['Player', 'Average Sentiment']], hide_index=True)
+                st.dataframe(latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)[['Player', 'Current Sentiment']], hide_index=True)
             with c_low:
                 st.write("**🧊 Lowest Sentiment**")
-                st.dataframe(latest_day.sort_values(by='Average Sentiment', ascending=True).head(5)[['Player', 'Average Sentiment']], hide_index=True)
+                st.dataframe(latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)[['Player', 'Current Sentiment']], hide_index=True)
 else:
     st.info("Awaiting initial data load.")
