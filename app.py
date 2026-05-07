@@ -50,7 +50,13 @@ def load_all_data():
 # --- UI & Dashboard ---
 st.title("Bluesky NFL Player Sentiment")
 st.markdown('What the "Official App of Sports" Thinks')
-st.markdown('**Created by Stephen Hoopes** | [Bluesky Profile](https://bsky.app/profile/stephenhoopes.bsky.social) | [4for4 Articles](https://www.4for4.com/users/stephen-hoopes/author-page)')
+
+# --- Sidebar Links ---
+with st.sidebar:
+    st.markdown("### About the Creator")
+    st.markdown("**Stephen Hoopes**")
+    st.markdown("[Bluesky Profile](https://bsky.app/profile/stephenhoopes.bsky.social)")
+    st.markdown("[Read my 4for4 Articles](https://www.4for4.com/users/stephen-hoopes/author-page)")
 
 with st.expander("ℹ️ How to read these sentiment scores"):
     st.markdown("""
