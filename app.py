@@ -160,9 +160,9 @@ if player_list:
     if not all_df.empty:
         latest_date = all_df['date'].max()
         
-        # SECTION: Biggest Sentiment Changes
+        # SECTION: Largest Sentiment Changes
         st.divider()
-        st.subheader("Biggest Sentiment Changes (Last 7 Days)")
+        st.subheader("Largest Sentiment Changes (Last 7 Days)")
         
         seven_days_ago = latest_date - pd.Timedelta(days=7)
         recent_df = all_df[all_df['date'] >= seven_days_ago].copy()
@@ -185,10 +185,10 @@ if player_list:
             
             c1, c2 = st.columns(2)
             with c1:
-                st.write("**📈 Top Increases**")
+                st.write("**📈 Biggest Risers**")
                 st.dataframe(movers_df.sort_values(by='7 Day Change', ascending=False).head(5), hide_index=True)
             with c2:
-                st.write("**📉 Top Decreases**")
+                st.write("**📉 Biggest Fallers**")
                 st.dataframe(movers_df.sort_values(by='7 Day Change', ascending=True).head(5), hide_index=True)
 
         # SECTION: Extremes
