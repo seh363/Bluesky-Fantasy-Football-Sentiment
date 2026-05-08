@@ -59,12 +59,16 @@ def load_all_data():
     return df
 
 # --- UI & Dashboard Header ---
-col1, col2 = st.columns([1, 5])
+# --- UI & Dashboard Header ---
+# Adjusted ratio to [1, 4] and added vertical_alignment="center"
+col1, col2 = st.columns([1, 4], vertical_alignment="center")
+
 with col1:
-    # Ensure logo.png is in your GitHub root directory
-    st.image("logo.png", width=70) 
+    # Increased width from 70 to 120
+    st.image("logo.png", width=120) 
+
 with col2:
-    st.title("Bluesky Football Sentiment")
+    st.title("Bluesky Fantasy Football Sentiment")
     st.caption("What the 'Official App of Sports' Thinks")
 
 # --- Sidebar Links ---
