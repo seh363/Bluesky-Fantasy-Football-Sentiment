@@ -1,8 +1,9 @@
 import os
 import time
 from datetime import datetime
-from atproto import Client
+from atproto import Client, Request
 from atproto_client.exceptions import InvokeTimeoutError
+from httpx import Timeout
 from supabase import create_client
 from textblob import TextBlob
 
@@ -10,7 +11,7 @@ from textblob import TextBlob
 BSKY_HANDLE = os.environ.get("BSKY_HANDLE")
 BSKY_PASSWORD = os.environ.get("BSKY_PASSWORD")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY") # Updated to match your GitHub Secret
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 # Safety Check: Ensure all environment variables are present
 if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
@@ -25,8 +26,9 @@ if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
 # Initialize Supabase
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Initialize Bluesky with an increased timeout (30 seconds)
-bsky_client = Client(request_timeout=30.0)
+# Initialize Bluesky with an increased timeout (30 seconds) via a custom Request
+custom_request = Request(timeout=Timeout(timeout=30.0))
+bsky_client = Client(request=custom_request)
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
 def get_player_list():
