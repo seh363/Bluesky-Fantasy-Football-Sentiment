@@ -87,10 +87,10 @@ with st.expander("ℹ️ How to read these sentiment scores"):
     This dashboard uses Natural Language Processing (NLP) to read daily Bluesky posts and assign them a mathematical score. 
     
     **The Scale (-1.0 to 1.0):**
-    * **🟢 1.0 (Extremely Positive):** Pure hype or breakout predictions.
-    * **⚪ 0.0 (Neutral):** Fact-based news or updates.
-    * **🔴 -1.0 (Extremely Negative):** Heavy criticism or panic.
-    """)
+    * <span style="color: green; font-weight: bold;">1.0 (Extremely Positive): Pure hype or breakout predictions.</span>
+    * <span style="color: black; font-weight: bold;">0.0 (Neutral): Fact-based news or updates.</span>
+    * <span style="color: red; font-weight: bold;">-1.0 (Extremely Negative): Heavy criticism or panic.</span>
+    """, unsafe_allow_html=True)
 
 st.divider()
 
