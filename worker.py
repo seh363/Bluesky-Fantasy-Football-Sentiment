@@ -33,9 +33,9 @@ bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
 def get_player_list():
     """Fetches players from the 'tracked_players' table."""
-    # CHANGED: 'players' -> 'tracked_players' based on your Supabase hint
-    response = supabase.table("tracked_players").select("name").execute()
-    return [p['name'] for p in response.data]
+    # UPDATED: Changed "name" to "player_name"
+    response = supabase.table("tracked_players").select("player_name").execute()
+    return [p['player_name'] for p in response.data]
 
 def process_player(player_name):
     """Searches Bluesky, calculates sentiment, and saves results."""
@@ -70,7 +70,6 @@ def process_player(player_name):
             "date": datetime.now().date().isoformat()
         }
 
-        # NOTE: Verify if this table is also named correctly in your DB
         supabase.table("daily_sentiment").upsert(data).execute()
         print(f"✅ Saved {player_name}: {avg_sentiment:.2f} ({count} posts)")
 
