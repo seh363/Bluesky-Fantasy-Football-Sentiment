@@ -38,63 +38,63 @@ def get_player_list():
     return [p['player_name'] for p in response.data]
 
 def process_player(player_name):
-    """Searches Bluesky, filters for last 24h, and saves sentiment."""
     print(f"🔍 Processing: {player_name}")
-    
     try:
-        response = bsky_client.app.bsky.feed.search_posts(params={
-            'q': player_name,
-            'limit': 100
-        })
-        
+        response = bsky_client.app.bsky.feed.search_posts(params={'q': player_name, 'limit': 100})
         posts = response.posts
-        if not posts:
-            print(f"⚠️ No posts found for {player_name}")
-            return
+        if not posts: return
 
         total_sentiment = 0
         count = 0
-        
-        # Define our 24-hour window
         cutoff_time = datetime.now(timezone.utc) - timedelta(days=1)
 
+        # Initialize trackers for best/worst posts
+        max_pos_score = -1.1 # Lower than any possible score
+        max_pos_text = ""
+        min_neg_score = 1.1  # Higher than any possible score
+        min_neg_text = ""
+
         for post in posts:
-            # parser.isoparse handles nanoseconds and varied offsets automatically
-            post_time = parser.isoparse(post.record.created_at)
+            # ... (keep your existing timestamp cleaning and cutoff logic here) ...
             
-            # Ensure the post_time is timezone-aware for comparison
-            if post_time.tzinfo is None:
-                post_time = post_time.replace(tzinfo=timezone.utc)
-
-            # Filter: Only count posts from the last 24 hours
-            if post_time < cutoff_time:
-                continue
-
             text = post.record.text
             analysis = TextBlob(text)
-            total_sentiment += analysis.sentiment.polarity
+            score = analysis.sentiment.polarity
+            
+            # Track the most positive post
+            if score > max_pos_score:
+                max_pos_score = score
+                max_pos_text = text
+            
+            # Track the most negative post
+            if score < min_neg_score:
+                min_neg_score = score
+                min_neg_text = text
+
+            total_sentiment += score
             count += 1
 
-        if count == 0:
-            print(f"🕒 No recent posts (last 24h) for {player_name}. Skipping save.")
-            return
+        if count == 0: return
 
         avg_sentiment = total_sentiment / count
         
+        # Add the featured posts to your data dictionary
         data = {
             "player_name": player_name,
             "average_sentiment": round(avg_sentiment, 4),
             "total_posts": count,
-            "date": datetime.now().date().isoformat()
+            "date": datetime.now().date().isoformat(),
+            "top_pos_text": max_pos_text,
+            "top_pos_score": round(max_pos_score, 4),
+            "top_neg_text": min_neg_text,
+            "top_neg_score": round(min_neg_score, 4)
         }
 
         supabase.table("daily_sentiment").upsert(data).execute()
-        print(f"✅ Saved {player_name}: {avg_sentiment:.2f} ({count} posts)")
+        print(f"✅ Saved {player_name} with featured posts.")
 
-    except InvokeTimeoutError:
-        print(f"🕒 Timeout: Bluesky search took too long for {player_name}.")
     except Exception as e:
-        print(f"❌ Error processing {player_name}: {e}")
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     players = get_player_list()
