@@ -61,14 +61,17 @@ def load_all_data():
 # --- UI & Dashboard Header ---
 # --- UI & Dashboard Header ---
 # Adjusted ratio to [1, 4] and added vertical_alignment="center"
-col1, col2 = st.columns([1, 4], vertical_alignment="center")
+# --- UI & Dashboard Header ---
+col1, col2 = st.columns([1, 4])
 
 with col1:
-    # Increased width from 70 to 120
+    # Increased width as requested
     st.image("logo.png", width=120) 
 
 with col2:
-    st.title("Bluesky Fantasy Football Sentiment")
+    # Adding a few empty lines to push the text down manually
+    st.markdown("##") 
+    st.title("Bluesky Football Sentiment")
     st.caption("What the 'Official App of Sports' Thinks")
 
 # --- Sidebar Links ---
