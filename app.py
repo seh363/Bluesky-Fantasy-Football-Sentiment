@@ -213,20 +213,55 @@ if player_list:
                 st.dataframe(fallers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
 
         # SECTION: Extremes
+        # SECTION: Extremes
         st.divider()
         st.subheader("Current Sentiment Extremes")
         latest_day = all_df[all_df['date'] == latest_date].copy()
+        
         if not latest_day.empty:
-            latest_day = latest_day.rename(columns={'player_name': 'Player', 'average_sentiment': 'Current Sentiment'})
+            # Renaming for clean display
+            latest_day = latest_day.rename(columns={
+                'player_name': 'Player', 
+                'average_sentiment': 'Current Sentiment',
+                'top_pos_text': 'Top Positive Post',
+                'top_neg_text': 'Top Negative Post'
+            })
             
             c_high, c_low = st.columns(2)
+            
             with c_high:
                 st.write("**🔥 Highest Sentiment**")
-                high_df = latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)[['Player', 'Current Sentiment']]
-                st.dataframe(high_df.style.map(color_sentiment, subset=['Current Sentiment']).format(precision=2), hide_index=True)
+                high_df = latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)
+                
+                # We use column_config to make the 'Top Positive Post' column wider
+                st.dataframe(
+                    high_df[['Player', 'Current Sentiment', 'Top Positive Post']].style.map(
+                        color_sentiment, subset=['Current Sentiment']
+                    ).format(precision=2), 
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Top Positive Post": st.column_config.TextColumn(
+                            "Top Positive Post",
+                            width="large",
+                        )
+                    }
+                )
+                
             with c_low:
                 st.write("**🧊 Lowest Sentiment**")
-                low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)[['Player', 'Current Sentiment']]
-                st.dataframe(low_df.style.map(color_sentiment, subset=['Current Sentiment']).format(precision=2), hide_index=True)
-else:
-    st.info("Awaiting initial data load.")
+                low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)
+                
+                st.dataframe(
+                    low_df[['Player', 'Current Sentiment', 'Top Negative Post']].style.map(
+                        color_sentiment, subset=['Current Sentiment']
+                    ).format(precision=2), 
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Top Negative Post": st.column_config.TextColumn(
+                            "Top Negative Post",
+                            width="large",
+                        )
+                    }
+                )
