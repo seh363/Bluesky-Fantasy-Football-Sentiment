@@ -5,7 +5,7 @@ on:
     # Runs at 00:00 UTC every day
     - cron: '0 0 * * *'
   workflow_dispatch:
-    # Allows you to manually trigger the run from the Actions tab
+    # This allows you to manually press "Run workflow" in GitHub Actions
 
 jobs:
   build:
@@ -28,8 +28,9 @@ jobs:
 
       - name: Run sentiment worker
         env:
+          # These must match the names in your worker.py script
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
           BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }} 
         run: python worker.py
