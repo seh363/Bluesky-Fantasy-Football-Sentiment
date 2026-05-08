@@ -13,7 +13,7 @@ BSKY_PASSWORD = os.environ.get("BSKY_PASSWORD")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# Safety Check: Ensures GitHub Secrets are actually loading
+# Safety Check: Ensures GitHub Secrets are loaded correctly
 if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
     missing = [name for name, val in {
         "BSKY_HANDLE": BSKY_HANDLE,
@@ -27,12 +27,13 @@ if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Initialize Bluesky with 30s timeout protection
+# custom_request handles the HTTPX timeout requirements for atproto
 custom_request = Request(timeout=Timeout(timeout=30.0))
 bsky_client = Client(request=custom_request)
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
 def get_player_list():
-    """Fetches the players you are scouting from Supabase."""
+    """Fetches the players from the 'tracked_players' table."""
     response = supabase.table("tracked_players").select("player_name").execute()
     return [p['player_name'] for p in response.data]
 
@@ -59,8 +60,18 @@ def process_player(player_name):
         cutoff_time = datetime.now(timezone.utc) - timedelta(days=1)
 
         for post in posts:
-            # Convert Bluesky string to a datetime object
-            post_time = datetime.fromisoformat(post.record.created_at.replace('Z', '+00:00'))
+            # Clean up the timestamp for Python 3.10 (truncating nanoseconds to microseconds)
+            raw_ts = post.record.created_at.replace('Z', '+00:00')
+            
+            if '.' in raw_ts:
+                # Handle cases where Bluesky returns high-precision timestamps (e.g. Makai Lemon)
+                base, fraction = raw_ts.split('.')
+                # Truncate nanoseconds (9 digits) to microseconds (6 digits) to avoid ValueError
+                cleaned_ts = f"{base}.{fraction[:6]}{fraction[fraction.find('+'):]}"
+            else:
+                cleaned_ts = raw_ts
+
+            post_time = datetime.fromisoformat(cleaned_ts)
             
             # Filter: Only count posts from the last 24 hours
             if post_time < cutoff_time:
@@ -77,7 +88,7 @@ def process_player(player_name):
 
         avg_sentiment = total_sentiment / count
         
-        # Prepare the data for hoopesfootball.com
+        # Prepare data for hoopesfootball.com
         data = {
             "player_name": player_name,
             "average_sentiment": round(avg_sentiment, 4),
@@ -85,7 +96,7 @@ def process_player(player_name):
             "date": datetime.now().date().isoformat()
         }
 
-        # Save to Supabase (Requires the 'ALL' or 'INSERT/UPDATE' RLS Policy)
+        # Save to Supabase (Requires valid RLS Policy on daily_sentiment table)
         supabase.table("daily_sentiment").upsert(data).execute()
         print(f"✅ Saved {player_name}: {avg_sentiment:.2f} ({count} posts)")
 
@@ -100,7 +111,7 @@ if __name__ == "__main__":
     
     for player in players:
         process_player(player)
-        # Be a good citizen—1 second delay between API calls
+        # 1 second delay to avoid rate-limiting
         time.sleep(1) 
         
     print("🏁 Worker finished successfully.")
