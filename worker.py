@@ -13,7 +13,7 @@ BSKY_PASSWORD = os.environ.get("BSKY_PASSWORD")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# Safety Check: Ensure all environment variables are present
+# Safety Check
 if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
     missing = [name for name, val in {
         "BSKY_HANDLE": BSKY_HANDLE,
@@ -26,18 +26,19 @@ if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
 # Initialize Supabase
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Initialize Bluesky with an increased timeout (30 seconds) via a custom Request
+# Initialize Bluesky with increased timeout
 custom_request = Request(timeout=Timeout(timeout=30.0))
 bsky_client = Client(request=custom_request)
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
 def get_player_list():
-    """Fetches the list of players to track from Supabase."""
-    response = supabase.table("players").select("name").execute()
+    """Fetches players from the 'tracked_players' table."""
+    # CHANGED: 'players' -> 'tracked_players' based on your Supabase hint
+    response = supabase.table("tracked_players").select("name").execute()
     return [p['name'] for p in response.data]
 
 def process_player(player_name):
-    """Searches Bluesky for a player, calculates sentiment, and saves to Supabase."""
+    """Searches Bluesky, calculates sentiment, and saves results."""
     print(f"🔍 Processing: {player_name}")
     
     try:
@@ -69,6 +70,7 @@ def process_player(player_name):
             "date": datetime.now().date().isoformat()
         }
 
+        # NOTE: Verify if this table is also named correctly in your DB
         supabase.table("daily_sentiment").upsert(data).execute()
         print(f"✅ Saved {player_name}: {avg_sentiment:.2f} ({count} posts)")
 
