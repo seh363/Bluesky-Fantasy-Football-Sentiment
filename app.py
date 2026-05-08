@@ -215,7 +215,7 @@ if player_list:
         # SECTION: Extremes
         # SECTION: Extremes
         st.divider()
-        st.subheader("Current Sentiment Extremes")
+        st.subheader("Current Day Sentiment Extremes")
         latest_day = all_df[all_df['date'] == latest_date].copy()
         
         if not latest_day.empty:
@@ -223,8 +223,8 @@ if player_list:
             latest_day = latest_day.rename(columns={
                 'player_name': 'Player', 
                 'average_sentiment': 'Current Sentiment',
-                'top_pos_text': 'Top Positive Post',
-                'top_neg_text': 'Top Negative Post'
+                'top_pos_text': 'Most Positive Post',
+                'top_neg_text': 'Most Negative Post'
             })
             
             c_high, c_low = st.columns(2)
@@ -235,14 +235,14 @@ if player_list:
                 
                 # We use column_config to make the 'Top Positive Post' column wider
                 st.dataframe(
-                    high_df[['Player', 'Current Sentiment', 'Top Positive Post']].style.map(
+                    high_df[['Player', 'Current Sentiment', 'Most Positive Post']].style.map(
                         color_sentiment, subset=['Current Sentiment']
                     ).format(precision=2), 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
-                        "Top Positive Post": st.column_config.TextColumn(
-                            "Top Positive Post",
+                        "Most Positive Post": st.column_config.TextColumn(
+                            "Most Positive Post",
                             width="large",
                         )
                     }
@@ -253,14 +253,14 @@ if player_list:
                 low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)
                 
                 st.dataframe(
-                    low_df[['Player', 'Current Sentiment', 'Top Negative Post']].style.map(
+                    low_df[['Player', 'Current Sentiment', 'Most Negative Post']].style.map(
                         color_sentiment, subset=['Current Sentiment']
                     ).format(precision=2), 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
-                        "Top Negative Post": st.column_config.TextColumn(
-                            "Top Negative Post",
+                        "Most Negative Post": st.column_config.TextColumn(
+                            "Most Negative Post",
                             width="large",
                         )
                     }
