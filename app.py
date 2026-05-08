@@ -19,6 +19,17 @@ def init_connection():
 
 supabase = init_connection()
 
+# --- Helper Function for Conditional Formatting ---
+def color_sentiment(val):
+    """
+    Green if positive, Red if negative, Black if exactly 0.
+    """
+    if val > 0:
+        return 'color: green'
+    elif val < 0:
+        return 'color: red'
+    return 'color: black'
+
 @st.cache_data(ttl=3600)
 def get_available_players():
     response = supabase.table("daily_sentiment").select("player_name").execute()
@@ -47,9 +58,14 @@ def load_all_data():
         df = df.sort_values(by=['player_name', 'date'])
     return df
 
-# --- UI & Dashboard ---
-st.title("Bluesky NFL Player Sentiment")
-st.markdown('What the "Official App of Sports" Thinks')
+# --- UI & Dashboard Header ---
+col1, col2 = st.columns([1, 5])
+with col1:
+    # Ensure logo.png is in your GitHub root directory
+    st.image("logo.png", width=70) 
+with col2:
+    st.title("Bluesky Football Sentiment")
+    st.caption("What the 'Official App of Sports' Thinks")
 
 # --- Sidebar Links ---
 with st.sidebar:
@@ -73,10 +89,9 @@ st.divider()
 player_list = get_available_players()
 
 if player_list:
-    # --- UI LAYOUT: Head-to-Head Selection and Timeframe ---
+    # --- UI LAYOUT: Selection and Timeframe ---
     col1, col2 = st.columns([2, 1])
     with col1:
-        # Multiselect allows for head-to-head comparison
         default_players = ["Jahan Dotson"] if "Jahan Dotson" in player_list else [player_list[0]]
         selected_players = st.multiselect(
             "Head-to-Head Player Comparison", 
@@ -88,14 +103,10 @@ if player_list:
         timeframe = st.selectbox("Timeframe", options=["Last 14 Days", "Last 30 Days", "All Time"], index=1)
 
     if selected_players:
-        # --- CHART BUILDING ---
         st.subheader("Sentiment Comparison")
         fig = go.Figure()
         
-        # Color palette for consistent comparison
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-        
-        # We'll use this to display KPI cards for the first selected player
         primary_df = None
 
         for i, player in enumerate(selected_players):
@@ -103,7 +114,6 @@ if player_list:
             if not df.empty:
                 if i == 0: primary_df = df
                 
-                # Apply date filter
                 max_date = df['date'].max()
                 if timeframe == "Last 14 Days":
                     cutoff = max_date - pd.Timedelta(days=14)
@@ -119,22 +129,26 @@ if player_list:
                     x=chart_df['date'], y=chart_df['7_Day_SMA'],
                     mode='lines',
                     name=f"{player} (7-Day Trend)",
-                    line=dict(color=colors[i], width=4)
+                    line=dict(color=colors[i], width=4),
+                    # Format hover for trend line
+                    hovertemplate="%{y:.2f}"
                 ))
                 
-                # Only add raw data points if 1 player is selected (prevents clutter)
                 if len(selected_players) == 1:
                     fig.add_trace(go.Scatter(
                         x=chart_df['date'], y=chart_df['average_sentiment'],
                         mode='lines+markers',
                         name=f"{player} (Daily)",
                         line=dict(color='rgba(150, 150, 150, 0.3)', width=2),
-                        marker=dict(size=6)
+                        marker=dict(size=6),
+                        # Format hover for daily dots
+                        hovertemplate="%{y:.2f}"
                     ))
 
         fig.update_layout(
             xaxis_title=None, 
             yaxis_title="Sentiment Score (-1 to 1)",
+            yaxis=dict(tickformat=".2f"), # Format Y-axis ticks
             hovermode="x unified", 
             legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5), 
             margin=dict(l=0, r=0, t=20, b=50) 
@@ -142,7 +156,7 @@ if player_list:
         fig.update_xaxes(tickformat="%Y-%m-%d", showgrid=False)
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- KPI Metrics for the Primary Player ---
+        # --- KPI Metrics ---
         if primary_df is not None:
             latest = primary_df.iloc[-1]
             st.write(f"**Snapshot: {selected_players[0]}**")
@@ -170,7 +184,6 @@ if player_list:
         
         shifts = (grouped.last() - grouped.first()).reset_index()
         day_counts = grouped.count().reset_index()
-        
         valid_players = day_counts[day_counts['average_sentiment'] > 1]['player_name']
         shifts = shifts[shifts['player_name'].isin(valid_players)]
         
@@ -180,16 +193,16 @@ if player_list:
             current.columns = ['Player', 'Current Sentiment']
             movers_df = pd.merge(shifts, current, on='Player')
             
-            movers_df['Current Sentiment'] = movers_df['Current Sentiment'].round(2)
-            movers_df['7 Day Change'] = movers_df['7 Day Change'].round(2)
-            
             c1, c2 = st.columns(2)
             with c1:
                 st.write("**📈 Biggest Risers**")
-                st.dataframe(movers_df.sort_values(by='7 Day Change', ascending=False).head(5), hide_index=True)
+                # Apply conditional color to the Change and Sentiment columns
+                risers = movers_df.sort_values(by='7 Day Change', ascending=False).head(5)
+                st.dataframe(risers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
             with c2:
                 st.write("**📉 Biggest Fallers**")
-                st.dataframe(movers_df.sort_values(by='7 Day Change', ascending=True).head(5), hide_index=True)
+                fallers = movers_df.sort_values(by='7 Day Change', ascending=True).head(5)
+                st.dataframe(fallers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
 
         # SECTION: Extremes
         st.divider()
@@ -197,14 +210,15 @@ if player_list:
         latest_day = all_df[all_df['date'] == latest_date].copy()
         if not latest_day.empty:
             latest_day = latest_day.rename(columns={'player_name': 'Player', 'average_sentiment': 'Current Sentiment'})
-            latest_day['Current Sentiment'] = latest_day['Current Sentiment'].round(2)
             
             c_high, c_low = st.columns(2)
             with c_high:
                 st.write("**🔥 Highest Sentiment**")
-                st.dataframe(latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)[['Player', 'Current Sentiment']], hide_index=True)
+                high_df = latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)[['Player', 'Current Sentiment']]
+                st.dataframe(high_df.style.map(color_sentiment, subset=['Current Sentiment']).format(precision=2), hide_index=True)
             with c_low:
                 st.write("**🧊 Lowest Sentiment**")
-                st.dataframe(latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)[['Player', 'Current Sentiment']], hide_index=True)
+                low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)[['Player', 'Current Sentiment']]
+                st.dataframe(low_df.style.map(color_sentiment, subset=['Current Sentiment']).format(precision=2), hide_index=True)
 else:
     st.info("Awaiting initial data load.")
