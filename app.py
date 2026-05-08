@@ -59,18 +59,19 @@ def load_all_data():
     return df
 
 # --- UI & Dashboard Header ---
-# --- UI & Dashboard Header ---
-# Adjusted ratio to [1, 4] and added vertical_alignment="center"
-# --- UI & Dashboard Header ---
-col1, col2 = st.columns([1, 4])
+# 1. Change the ratio to [1, 3] to give the logo column more horizontal room
+col1, col2 = st.columns([1, 3])
 
 with col1:
-    # Increased width as requested
-    st.image("logo.png", width=120) 
+    # 2. Use a larger width (200 or more)
+    # 3. Use an HTML/CSS snippet to add padding at the top (lowering the logo)
+    st.markdown('<div style="padding-top: 25px;">', unsafe_allow_html=True)
+    st.image("logo.png", width=220) 
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    # Adding a few empty lines to push the text down manually
-    st.markdown("##") 
+    # Adding a bit of space so the text aligns with the middle of your larger logo
+    st.markdown("###") 
     st.title("Bluesky Football Sentiment")
     st.caption("What the 'Official App of Sports' Thinks")
 
