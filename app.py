@@ -76,11 +76,18 @@ with col2:
     st.caption("What the 'Official App of Sports' Thinks")
 
 # --- Sidebar Links ---
+# --- Sidebar Links ---
 with st.sidebar:
     st.markdown("### About the Creator")
     st.markdown("**Stephen Hoopes**")
     st.markdown("[Bluesky Profile](https://bsky.app/profile/stephenhoopes.bsky.social)")
-    st.markdown("[Read my 4for4 Articles](https://www.4for4.com/users/stephen-hoopes/author-page)")
+    st.markdown("[4for4 Articles](https://www.4for4.com/users/stephen-hoopes/author-page)")
+    
+    st.divider()
+    # This button manually clears the cache and re-runs the app
+    if st.button("🔄 Clear Cache & Refresh"):
+        st.cache_data.clear()
+        st.rerun()
 
 with st.expander("ℹ️ How to read these sentiment scores"):
     st.markdown("""
