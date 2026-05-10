@@ -1,7 +1,7 @@
 import os
 import time
 from datetime import datetime, timedelta, timezone
-from dateutil import parser  # New library for robust date parsing
+from dateutil import parser  # Library for robust date parsing
 from atproto import Client, Request
 from atproto_client.exceptions import InvokeTimeoutError
 from httpx import Timeout
@@ -39,14 +39,27 @@ def get_player_list():
 
 def process_player(player_name):
     print(f"🔍 Processing: {player_name}")
+    
+    # 1. Define the "Fixed" Previous Day Window (Yesterday 00:00:00 to 23:59:59 UTC)
+    today = datetime.now(timezone.utc).date()
+    yesterday = today - timedelta(days=1)
+    
+    start_of_yesterday = datetime.combine(yesterday, datetime.min.time()).replace(tzinfo=timezone.utc)
+    end_of_yesterday = datetime.combine(yesterday, datetime.max.time()).replace(tzinfo=timezone.utc)
+
+    # Search for exact phrase match
+    search_query = f'"{player_name}"'
+
     try:
-        response = bsky_client.app.bsky.feed.search_posts(params={'q': player_name, 'limit': 100})
+        # Grabbing 100 posts (you can increase this to 200 if volume drops too much)
+        response = bsky_client.app.bsky.feed.search_posts(params={'q': search_query, 'limit': 100})
         posts = response.posts
-        if not posts: return
+        if not posts:
+            print(f"🕒 No posts found for {player_name}.")
+            return
 
         total_sentiment = 0
         count = 0
-        cutoff_time = datetime.now(timezone.utc) - timedelta(days=1)
 
         # Initialize trackers for best/worst posts
         max_pos_score = -1.1 # Lower than any possible score
@@ -55,9 +68,22 @@ def process_player(player_name):
         min_neg_text = ""
 
         for post in posts:
-            # ... (keep your existing timestamp cleaning and cutoff logic here) ...
-            
             text = post.record.text
+            text_lower = text.lower()
+            
+            # --- FILTER 1: Explicit Full-Name Match ---
+            if player_name.lower() not in text_lower:
+                continue
+
+            # --- FILTER 2: Strict Calendar Day (Yesterday Only) ---
+            post_time = parser.isoparse(post.record.created_at)
+            if post_time.tzinfo is None:
+                post_time = post_time.replace(tzinfo=timezone.utc)
+            
+            if not (start_of_yesterday <= post_time <= end_of_yesterday):
+                continue
+
+            # --- SENTIMENT ANALYSIS ---
             analysis = TextBlob(text)
             score = analysis.sentiment.polarity
             
@@ -74,16 +100,18 @@ def process_player(player_name):
             total_sentiment += score
             count += 1
 
-        if count == 0: return
+        if count == 0:
+            print(f"🕒 No relevant full-name mentions specifically for yesterday ({yesterday}).")
+            return
 
         avg_sentiment = total_sentiment / count
         
-        # Add the featured posts to your data dictionary
+        # Prepare the data dictionary
         data = {
             "player_name": player_name,
             "average_sentiment": round(avg_sentiment, 4),
             "total_posts": count,
-            "date": datetime.now().date().isoformat(),
+            "date": yesterday.isoformat(), # Assign strictly to yesterday's date
             "top_pos_text": max_pos_text,
             "top_pos_score": round(max_pos_score, 4),
             "top_neg_text": min_neg_text,
@@ -91,10 +119,13 @@ def process_player(player_name):
         }
 
         supabase.table("daily_sentiment").upsert(data).execute()
-        print(f"✅ Saved {player_name} with featured posts.")
+        print(f"✅ Saved {player_name} for {yesterday} ({count} verified posts).")
 
+    except InvokeTimeoutError:
+        print(f"🕒 Timeout: Bluesky search took too long for {player_name}.")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error processing {player_name}: {e}")
+
 
 if __name__ == "__main__":
     players = get_player_list()
