@@ -19,17 +19,6 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- Helper Function for Conditional Formatting ---
-def color_sentiment(val):
-    """
-    Green if positive, Red if negative, Black if exactly 0.
-    """
-    if val > 0:
-        return 'color: green'
-    elif val < 0:
-        return 'color: red'
-    return 'color: black'
-
 @st.cache_data(ttl=3600)
 def get_available_players():
     response = supabase.table("daily_sentiment").select("player_name").execute()
@@ -98,6 +87,7 @@ st.divider()
 player_list = get_available_players()
 
 if player_list:
+    # --- UI LAYOUT: Selection and Timeframe ---
     col1, col2 = st.columns([2, 1])
     with col1:
         default_players = ["Jahan Dotson"] if "Jahan Dotson" in player_list else [player_list[0]]
@@ -114,9 +104,12 @@ if player_list:
         st.subheader("Sentiment Comparison")
         fig = go.Figure()
         
-        # Player Colors for Trend Lines (Blue, Orange, Green)
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
+        # Professional High-Contrast Colors for Trend Lines
+        trend_colors = ['#2563eb', '#ea580c', '#0891b2']
         primary_df = None
+
+        # Neutral Zone Shading Band
+        fig.add_hrect(y0=-0.1, y1=0.1, line_width=0, fillcolor="#f1f5f9", opacity=1, layer="below")
 
         for i, player in enumerate(selected_players):
             df = load_player_data(player)
@@ -138,28 +131,28 @@ if player_list:
                     x=chart_df['date'], y=chart_df['7_Day_SMA'],
                     mode='lines',
                     name=f"{player} (7-Day Trend)",
-                    line=dict(color=colors[i], width=4, shape='spline'),
+                    line=dict(color=trend_colors[i], width=5, shape='spline'),
                     hovertemplate="%{y:.2f}"
                 ))
                 
                 if len(selected_players) == 1:
+                    # Add Daily Data (Faded Context)
                     fig.add_trace(go.Scatter(
                         x=chart_df['date'], y=chart_df['average_sentiment'],
-                        mode='lines+markers',
+                        mode='markers',
                         name=f"{player} (Daily Raw)",
-                        # UPDATED: Color changed to Indigo to contrast with the Blue trend line
-                        line=dict(color='rgba(99, 102, 241, 0.4)', width=2, shape='spline'),
-                        marker=dict(size=8, color='rgba(79, 70, 229, 0.7)'),
+                        marker=dict(size=10, color='#94a3b8', opacity=0.4, line=dict(width=1, color='white')),
                         hovertemplate="%{y:.2f}"
                     ))
 
         # --- Layout & UX ---
         fig.update_layout(
             dragmode=False,
+            height=450,
             xaxis_title=None, 
-            yaxis_title="Sentiment Score",
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
+            yaxis_title="Sentiment Score (-1 to 1)",
+            plot_bgcolor="white",
+            paper_bgcolor="white",
             hovermode="x unified", 
             legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5), 
             margin=dict(l=0, r=0, t=20, b=50),
@@ -167,9 +160,10 @@ if player_list:
                 fixedrange=True,
                 tickformat=".2f",
                 range=[-1.1, 1.1],
+                gridcolor="#f1f5f9", 
                 zeroline=True,
-                zerolinecolor='rgba(150, 150, 150, 0.5)', # Axis Line
-                zerolinewidth=2
+                zerolinecolor='#475569', 
+                zerolinewidth=1.5
             ),
             xaxis=dict(
                 fixedrange=True,
@@ -192,11 +186,12 @@ if player_list:
             with m3:
                 st.metric("Recent Posts", f"{latest['total_posts']:,}")
 
-    # --- Global Data Sections ---
+    # --- GLOBAL DATA SECTIONS ---
     all_df = load_all_data()
     if not all_df.empty:
         latest_date = all_df['date'].max()
         
+        # SECTION: Largest Sentiment Changes
         st.divider()
         st.subheader("Largest Sentiment Changes (Last 7 Days)")
         
@@ -219,11 +214,13 @@ if player_list:
             with c1:
                 st.write("**📈 Biggest Risers**")
                 risers = movers_df.sort_values(by='7 Day Change', ascending=False).head(5)
-                st.dataframe(risers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
+                # Removed color mapping, leaving native dataframe rendering
+                st.dataframe(risers.format(precision=2), hide_index=True)
             with c2:
                 st.write("**📉 Biggest Fallers**")
                 fallers = movers_df.sort_values(by='7 Day Change', ascending=True).head(5)
-                st.dataframe(fallers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
+                # Removed color mapping, leaving native dataframe rendering
+                st.dataframe(fallers.format(precision=2), hide_index=True)
 
         # SECTION: Extremes
         st.divider()
@@ -231,6 +228,7 @@ if player_list:
         latest_day = all_df[all_df['date'] == latest_date].copy()
         
         if not latest_day.empty:
+            # Renaming for clean display
             latest_day = latest_day.rename(columns={
                 'player_name': 'Player', 
                 'average_sentiment': 'Current Sentiment',
@@ -243,10 +241,10 @@ if player_list:
             with c_high:
                 st.write("**🔥 Highest Sentiment**")
                 high_df = latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)
+                
+                # Restored column_config to preserve text width
                 st.dataframe(
-                    high_df[['Player', 'Current Sentiment', 'Most Positive Post']].style.map(
-                        color_sentiment, subset=['Current Sentiment']
-                    ).format(precision=2), 
+                    high_df[['Player', 'Current Sentiment', 'Most Positive Post']], 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
@@ -260,10 +258,10 @@ if player_list:
             with c_low:
                 st.write("**🧊 Lowest Sentiment**")
                 low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)
+                
+                # Restored column_config to preserve text width
                 st.dataframe(
-                    low_df[['Player', 'Current Sentiment', 'Most Negative Post']].style.map(
-                        color_sentiment, subset=['Current Sentiment']
-                    ).format(precision=2), 
+                    low_df[['Player', 'Current Sentiment', 'Most Negative Post']], 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
