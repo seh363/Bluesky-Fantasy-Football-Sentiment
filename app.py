@@ -59,23 +59,18 @@ def load_all_data():
     return df
 
 # --- UI & Dashboard Header ---
-# 1. Change the ratio to [1, 3] to give the logo column more horizontal room
 col1, col2 = st.columns([1, 3])
 
 with col1:
-    # 2. Use a larger width (200 or more)
-    # 3. Use an HTML/CSS snippet to add padding at the top (lowering the logo)
     st.markdown('<div style="padding-top: 25px;">', unsafe_allow_html=True)
     st.image("logo.png", width=220) 
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    # Adding a bit of space so the text aligns with the middle of your larger logo
     st.markdown("###") 
     st.title("Bluesky Football Sentiment")
     st.caption("What the 'Official App of Sports' Thinks")
 
-# --- Sidebar Links ---
 # --- Sidebar Links ---
 with st.sidebar:
     st.markdown("### About the Creator")
@@ -84,7 +79,6 @@ with st.sidebar:
     st.markdown("[4for4 Articles](https://www.4for4.com/users/stephen-hoopes/author-page)")
     
     st.divider()
-    # This button manually clears the cache and re-runs the app
     if st.button("🔄 Clear Cache & Refresh"):
         st.cache_data.clear()
         st.rerun()
@@ -104,7 +98,6 @@ st.divider()
 player_list = get_available_players()
 
 if player_list:
-    # --- UI LAYOUT: Selection and Timeframe ---
     col1, col2 = st.columns([2, 1])
     with col1:
         default_players = ["Jahan Dotson"] if "Jahan Dotson" in player_list else [player_list[0]]
@@ -139,13 +132,13 @@ if player_list:
                 else:
                     chart_df = df
                 
-                # Add Trend Line (SMA)
+                # --- UPGRADED TRACES ---
+                # Add Trend Line (SMA) with Spline Smoothing
                 fig.add_trace(go.Scatter(
                     x=chart_df['date'], y=chart_df['7_Day_SMA'],
                     mode='lines',
                     name=f"{player} (7-Day Trend)",
-                    line=dict(color=colors[i], width=4),
-                    # Format hover for trend line
+                    line=dict(color=colors[i], width=4, shape='spline'),
                     hovertemplate="%{y:.2f}"
                 ))
                 
@@ -154,22 +147,37 @@ if player_list:
                         x=chart_df['date'], y=chart_df['average_sentiment'],
                         mode='lines+markers',
                         name=f"{player} (Daily)",
-                        line=dict(color='rgba(150, 150, 150, 0.3)', width=2),
-                        marker=dict(size=6),
-                        # Format hover for daily dots
+                        line=dict(color='rgba(150, 150, 150, 0.4)', width=2, shape='spline'),
+                        marker=dict(size=8),
                         hovertemplate="%{y:.2f}"
                     ))
 
+        # --- UPGRADED LAYOUT & UX ---
         fig.update_layout(
+            dragmode=False, # Disables accidental zooming
             xaxis_title=None, 
-            yaxis_title="Sentiment Score (-1 to 1)",
-            yaxis=dict(tickformat=".2f"), # Format Y-axis ticks
+            yaxis_title="Sentiment Score",
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
             hovermode="x unified", 
             legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5), 
-            margin=dict(l=0, r=0, t=20, b=50) 
+            margin=dict(l=0, r=0, t=20, b=50),
+            yaxis=dict(
+                fixedrange=True, # Locks vertical zoom
+                tickformat=".2f",
+                range=[-1.1, 1.1], # Keeps visual context stable
+                zeroline=True,
+                zerolinecolor='rgba(150, 150, 150, 0.5)',
+                zerolinewidth=2
+            ),
+            xaxis=dict(
+                fixedrange=True, # Locks horizontal zoom
+                showgrid=False
+            )
         )
-        fig.update_xaxes(tickformat="%Y-%m-%d", showgrid=False)
-        st.plotly_chart(fig, use_container_width=True)
+        
+        # Display chart with config to hide the toolbar
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         # --- KPI Metrics ---
         if primary_df is not None:
@@ -189,7 +197,6 @@ if player_list:
     if not all_df.empty:
         latest_date = all_df['date'].max()
         
-        # SECTION: Largest Sentiment Changes
         st.divider()
         st.subheader("Largest Sentiment Changes (Last 7 Days)")
         
@@ -211,7 +218,6 @@ if player_list:
             c1, c2 = st.columns(2)
             with c1:
                 st.write("**📈 Biggest Risers**")
-                # Apply conditional color to the Change and Sentiment columns
                 risers = movers_df.sort_values(by='7 Day Change', ascending=False).head(5)
                 st.dataframe(risers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
             with c2:
@@ -220,13 +226,11 @@ if player_list:
                 st.dataframe(fallers.style.map(color_sentiment, subset=['7 Day Change', 'Current Sentiment']).format(precision=2), hide_index=True)
 
         # SECTION: Extremes
-        # SECTION: Extremes
         st.divider()
         st.subheader("Current Day Sentiment Extremes")
         latest_day = all_df[all_df['date'] == latest_date].copy()
         
         if not latest_day.empty:
-            # Renaming for clean display
             latest_day = latest_day.rename(columns={
                 'player_name': 'Player', 
                 'average_sentiment': 'Current Sentiment',
@@ -239,8 +243,6 @@ if player_list:
             with c_high:
                 st.write("**🔥 Highest Sentiment**")
                 high_df = latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)
-                
-                # We use column_config to make the 'Top Positive Post' column wider
                 st.dataframe(
                     high_df[['Player', 'Current Sentiment', 'Most Positive Post']].style.map(
                         color_sentiment, subset=['Current Sentiment']
@@ -258,7 +260,6 @@ if player_list:
             with c_low:
                 st.write("**🧊 Lowest Sentiment**")
                 low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)
-                
                 st.dataframe(
                     low_df[['Player', 'Current Sentiment', 'Most Negative Post']].style.map(
                         color_sentiment, subset=['Current Sentiment']
