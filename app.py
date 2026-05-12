@@ -140,7 +140,7 @@ if player_list:
                     fig.add_trace(go.Scatter(
                         x=chart_df['date'], y=chart_df['average_sentiment'],
                         mode='markers',
-                        name=f"{player} (Daily Raw)",
+                        name=f"{player} (Daily)",
                         marker=dict(size=10, color='#94a3b8', opacity=0.4, line=dict(width=1, color='white')),
                         hovertemplate="%{y:.2f}"
                     ))
