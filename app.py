@@ -149,12 +149,16 @@ if player_list:
         fig.update_layout(
             dragmode=False,
             height=450,
+            font=dict(color="#0f172a"), # UPDATED: Forces global font color to dark slate/black
             xaxis_title=None, 
             yaxis_title="Sentiment Score (-1 to 1)",
             plot_bgcolor="white",
             paper_bgcolor="white",
             hovermode="x unified", 
-            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5), 
+            legend=dict(
+                orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5,
+                font=dict(color="#0f172a") # Darkens legend text
+            ), 
             margin=dict(l=0, r=0, t=20, b=50),
             yaxis=dict(
                 fixedrange=True,
@@ -163,11 +167,16 @@ if player_list:
                 gridcolor="#f1f5f9", 
                 zeroline=True,
                 zerolinecolor='#475569', 
-                zerolinewidth=1.5
+                zerolinewidth=1.5,
+                color="#0f172a", # UPDATED: Darkens Y-axis labels
+                title_font=dict(color="#0f172a", size=14), # UPDATED: Darkens Y-axis title
+                tickfont=dict(color="#0f172a")
             ),
             xaxis=dict(
                 fixedrange=True,
-                showgrid=False
+                showgrid=False,
+                color="#0f172a", # UPDATED: Darkens X-axis labels
+                tickfont=dict(color="#0f172a")
             )
         )
         
@@ -214,13 +223,13 @@ if player_list:
             with c1:
                 st.write("**📈 Biggest Risers**")
                 risers = movers_df.sort_values(by='7 Day Change', ascending=False).head(5)
-                # Removed color mapping, leaving native dataframe rendering
-                st.dataframe(risers.format(precision=2), hide_index=True)
+                # FIX: Added .style before .format to correctly format the Pandas DataFrame
+                st.dataframe(risers.style.format(precision=2), hide_index=True)
             with c2:
                 st.write("**📉 Biggest Fallers**")
                 fallers = movers_df.sort_values(by='7 Day Change', ascending=True).head(5)
-                # Removed color mapping, leaving native dataframe rendering
-                st.dataframe(fallers.format(precision=2), hide_index=True)
+                # FIX: Added .style before .format
+                st.dataframe(fallers.style.format(precision=2), hide_index=True)
 
         # SECTION: Extremes
         st.divider()
@@ -242,9 +251,9 @@ if player_list:
                 st.write("**🔥 Highest Sentiment**")
                 high_df = latest_day.sort_values(by='Current Sentiment', ascending=False).head(5)
                 
-                # Restored column_config to preserve text width
+                # Appending .style.format(precision=2) here as well to keep numbers clean
                 st.dataframe(
-                    high_df[['Player', 'Current Sentiment', 'Most Positive Post']], 
+                    high_df[['Player', 'Current Sentiment', 'Most Positive Post']].style.format(precision=2), 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
@@ -259,9 +268,8 @@ if player_list:
                 st.write("**🧊 Lowest Sentiment**")
                 low_df = latest_day.sort_values(by='Current Sentiment', ascending=True).head(5)
                 
-                # Restored column_config to preserve text width
                 st.dataframe(
-                    low_df[['Player', 'Current Sentiment', 'Most Negative Post']], 
+                    low_df[['Player', 'Current Sentiment', 'Most Negative Post']].style.format(precision=2), 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
