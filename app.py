@@ -114,6 +114,7 @@ if player_list:
         st.subheader("Sentiment Comparison")
         fig = go.Figure()
         
+        # Player Colors for Trend Lines (Blue, Orange, Green)
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
         primary_df = None
 
@@ -132,8 +133,7 @@ if player_list:
                 else:
                     chart_df = df
                 
-                # --- UPGRADED TRACES ---
-                # Add Trend Line (SMA) with Spline Smoothing
+                # Add Trend Line (SMA)
                 fig.add_trace(go.Scatter(
                     x=chart_df['date'], y=chart_df['7_Day_SMA'],
                     mode='lines',
@@ -146,15 +146,16 @@ if player_list:
                     fig.add_trace(go.Scatter(
                         x=chart_df['date'], y=chart_df['average_sentiment'],
                         mode='lines+markers',
-                        name=f"{player} (Daily)",
-                        line=dict(color='rgba(150, 150, 150, 0.4)', width=2, shape='spline'),
-                        marker=dict(size=8),
+                        name=f"{player} (Daily Raw)",
+                        # UPDATED: Color changed to Indigo to contrast with the Blue trend line
+                        line=dict(color='rgba(99, 102, 241, 0.4)', width=2, shape='spline'),
+                        marker=dict(size=8, color='rgba(79, 70, 229, 0.7)'),
                         hovertemplate="%{y:.2f}"
                     ))
 
-        # --- UPGRADED LAYOUT & UX ---
+        # --- Layout & UX ---
         fig.update_layout(
-            dragmode=False, # Disables accidental zooming
+            dragmode=False,
             xaxis_title=None, 
             yaxis_title="Sentiment Score",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -163,20 +164,19 @@ if player_list:
             legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5), 
             margin=dict(l=0, r=0, t=20, b=50),
             yaxis=dict(
-                fixedrange=True, # Locks vertical zoom
+                fixedrange=True,
                 tickformat=".2f",
-                range=[-1.1, 1.1], # Keeps visual context stable
+                range=[-1.1, 1.1],
                 zeroline=True,
-                zerolinecolor='rgba(150, 150, 150, 0.5)',
+                zerolinecolor='rgba(150, 150, 150, 0.5)', # Axis Line
                 zerolinewidth=2
             ),
             xaxis=dict(
-                fixedrange=True, # Locks horizontal zoom
+                fixedrange=True,
                 showgrid=False
             )
         )
         
-        # Display chart with config to hide the toolbar
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         # --- KPI Metrics ---
@@ -192,7 +192,7 @@ if player_list:
             with m3:
                 st.metric("Recent Posts", f"{latest['total_posts']:,}")
 
-    # --- GLOBAL DATA SECTIONS ---
+    # --- Global Data Sections ---
     all_df = load_all_data()
     if not all_df.empty:
         latest_date = all_df['date'].max()
