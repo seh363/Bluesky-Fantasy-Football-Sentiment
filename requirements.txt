@@ -5,4 +5,5 @@ plotly==5.22.0
 textblob
 atproto
 python-dateutil
-pip install vaderSentiment
+vaderSentiment
+httpx
