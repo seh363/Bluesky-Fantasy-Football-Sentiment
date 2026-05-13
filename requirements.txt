@@ -7,3 +7,5 @@ atproto
 python-dateutil
 vaderSentiment
 httpx
+transformers
+torch
