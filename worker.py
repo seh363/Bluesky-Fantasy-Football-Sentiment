@@ -110,7 +110,7 @@ def process_player(player_name):
             noise_keywords = [
                 'jersey', 'uniform', 'kit', 'signed', 'autograph', 
                 'trading card', 'panini', 'rookie card', 'patch', 'helmet',
-                'buy', 'sell', 'ebay', 'prizm', 'optic'
+                'buy', 'sell', 'ebay', 'prizm', 'optic', 'eventbrite', 'audiobook'
             ]
             if any(keyword in clean_text.lower() for keyword in noise_keywords):
                 continue
