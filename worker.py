@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from datetime import datetime, timedelta, timezone
 from dateutil import parser
 from atproto import Client, Request
@@ -9,6 +10,9 @@ from supabase import create_client
 
 # 1. Import Transformers for the RoBERTa model
 from transformers import pipeline
+
+# Suppress the "UNEXPECTED" architectural warnings from transformers
+logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 # --- Configuration ---
 BSKY_HANDLE = os.environ.get("BSKY_HANDLE")
@@ -33,13 +37,12 @@ bsky_client = Client(request=custom_request)
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
 # 2. Initialize the RoBERTa Sentiment Pipeline
-# This model understands social media nuance (emojis, sarcasm, and slang)
-print("⏳ Loading RoBERTa model (this may take a moment on first run)...")
+print("⏳ Loading RoBERTa model...")
 sentiment_task = pipeline(
     "sentiment-analysis", 
     model="cardiffnlp/twitter-roberta-base-sentiment-latest",
     tokenizer="cardiffnlp/twitter-roberta-base-sentiment-latest",
-    device=-1 # Use -1 for CPU; change to 0 if your environment has a GPU
+    device=-1 
 )
 
 def get_player_list():
@@ -58,7 +61,6 @@ def map_roberta_to_scale(result):
     elif label == 'negative':
         return -score
     else:
-        # Neutral posts stay at 0.0
         return 0.0
 
 def process_player(player_name):
@@ -89,12 +91,13 @@ def process_player(player_name):
 
         for post in posts:
             text = post.record.text
-            # Basic cleaning for the model
             clean_text = text.replace('\n', ' ')
             
+            # --- 3. Filter: Name Check ---
             if player_name.lower() not in clean_text.lower():
                 continue
 
+            # --- 4. Filter: Time Window ---
             post_time = parser.isoparse(post.record.created_at)
             if post_time.tzinfo is None:
                 post_time = post_time.replace(tzinfo=timezone.utc)
@@ -102,9 +105,18 @@ def process_player(player_name):
             if not (start_of_yesterday <= post_time <= end_of_yesterday):
                 continue
 
-            # --- 3. RoBERTa SENTIMENT LOGIC ---
+            # --- 5. Noise Filter (Merch/Jersey/Memorabilia) ---
+            # Excludes marketing noise to keep the signal focused on performance scouting
+            noise_keywords = [
+                'jersey', 'uniform', 'kit', 'signed', 'autograph', 
+                'trading card', 'panini', 'rookie card', 'patch', 'helmet',
+                'buy', 'sell', 'ebay', 'prizm', 'optic'
+            ]
+            if any(keyword in clean_text.lower() for keyword in noise_keywords):
+                continue
+
+            # --- 6. RoBERTa SENTIMENT LOGIC ---
             try:
-                # Truncating to 512 characters as that's the standard model limit
                 model_result = sentiment_task(clean_text[:512])[0]
                 score = map_roberta_to_scale(model_result)
                 
@@ -123,7 +135,7 @@ def process_player(player_name):
                 continue
 
         if count == 0:
-            print(f"🕒 No verified posts for {player_name} on {yesterday}.")
+            print(f"🕒 No verified scouting posts for {player_name} on {yesterday}.")
             return
 
         avg_sentiment = total_sentiment / count
@@ -149,7 +161,7 @@ def process_player(player_name):
 
 if __name__ == "__main__":
     players = get_player_list()
-    print(f"🚀 Starting RoBERTa-powered daily worker for {len(players)} players...")
+    print(f"🚀 Starting daily worker for {len(players)} players...")
     
     for player in players:
         process_player(player)
