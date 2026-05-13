@@ -7,8 +7,8 @@ from atproto_client.exceptions import InvokeTimeoutError
 from httpx import Timeout
 from supabase import create_client
 
-# 1. Import VADER instead of TextBlob
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+# 1. Import Transformers for the RoBERTa model
+from transformers import pipeline
 
 # --- Configuration ---
 BSKY_HANDLE = os.environ.get("BSKY_HANDLE")
@@ -25,19 +25,41 @@ if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
     }.items() if not val]
     raise ValueError(f"❌ Missing environment variables: {', '.join(missing)}")
 
-# Initialize Supabase, Bluesky, and VADER
+# Initialize Supabase and Bluesky
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 custom_request = Request(timeout=Timeout(timeout=30.0))
 bsky_client = Client(request=custom_request)
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
-# 2. Initialize the VADER analyzer
-analyzer = SentimentIntensityAnalyzer()
+# 2. Initialize the RoBERTa Sentiment Pipeline
+# This model understands social media nuance (emojis, sarcasm, and slang)
+print("⏳ Loading RoBERTa model (this may take a moment on first run)...")
+sentiment_task = pipeline(
+    "sentiment-analysis", 
+    model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+    tokenizer="cardiffnlp/twitter-roberta-base-sentiment-latest",
+    device=-1 # Use -1 for CPU; change to 0 if your environment has a GPU
+)
 
 def get_player_list():
     response = supabase.table("tracked_players").select("player_name").execute()
     return [p['player_name'] for p in response.data]
+
+def map_roberta_to_scale(result):
+    """
+    Converts RoBERTa label/score to the dashboard's -1.0 to 1.0 scale.
+    """
+    label = result['label']
+    score = result['score']
+    
+    if label == 'positive':
+        return score
+    elif label == 'negative':
+        return -score
+    else:
+        # Neutral posts stay at 0.0
+        return 0.0
 
 def process_player(player_name):
     print(f"🔍 Processing: {player_name}")
@@ -67,9 +89,10 @@ def process_player(player_name):
 
         for post in posts:
             text = post.record.text
-            text_lower = text.lower()
+            # Basic cleaning for the model
+            clean_text = text.replace('\n', ' ')
             
-            if player_name.lower() not in text_lower:
+            if player_name.lower() not in clean_text.lower():
                 continue
 
             post_time = parser.isoparse(post.record.created_at)
@@ -79,25 +102,28 @@ def process_player(player_name):
             if not (start_of_yesterday <= post_time <= end_of_yesterday):
                 continue
 
-            # --- 3. NEW VADER SENTIMENT LOGIC ---
-            # VADER returns a dictionary. The 'compound' score is the metric 
-            # normalized between -1.0 (most extreme negative) and +1.0 (most extreme positive).
-            sentiment_dict = analyzer.polarity_scores(text)
-            score = sentiment_dict['compound']
-            
-            if score > max_pos_score:
-                max_pos_score = score
-                max_pos_text = text
-            
-            if score < min_neg_score:
-                min_neg_score = score
-                min_neg_text = text
+            # --- 3. RoBERTa SENTIMENT LOGIC ---
+            try:
+                # Truncating to 512 characters as that's the standard model limit
+                model_result = sentiment_task(clean_text[:512])[0]
+                score = map_roberta_to_scale(model_result)
+                
+                if score > max_pos_score:
+                    max_pos_score = score
+                    max_pos_text = text
+                
+                if score < min_neg_score:
+                    min_neg_score = score
+                    min_neg_text = text
 
-            total_sentiment += score
-            count += 1
+                total_sentiment += score
+                count += 1
+            except Exception as e:
+                print(f"⚠️ Model error on post: {e}")
+                continue
 
         if count == 0:
-            print(f"🕒 No relevant full-name mentions specifically for yesterday ({yesterday}).")
+            print(f"🕒 No verified posts for {player_name} on {yesterday}.")
             return
 
         avg_sentiment = total_sentiment / count
@@ -114,7 +140,7 @@ def process_player(player_name):
         }
 
         supabase.table("daily_sentiment").upsert(data).execute()
-        print(f"✅ Saved {player_name} for {yesterday} ({count} verified posts).")
+        print(f"✅ Saved {player_name} ({count} posts). Score: {avg_sentiment:.4f}")
 
     except InvokeTimeoutError:
         print(f"🕒 Timeout: Bluesky search took too long for {player_name}.")
@@ -123,7 +149,7 @@ def process_player(player_name):
 
 if __name__ == "__main__":
     players = get_player_list()
-    print(f"🚀 Starting daily worker for {len(players)} players...")
+    print(f"🚀 Starting RoBERTa-powered daily worker for {len(players)} players...")
     
     for player in players:
         process_player(player)
