@@ -52,15 +52,21 @@ def get_player_list():
 def map_roberta_to_scale(result):
     """
     Converts RoBERTa label/score to the dashboard's -1.0 to 1.0 scale.
+    Robustly handles string labels, capitalized labels, and raw model indices.
     """
-    label = result['label']
-    score = result['score']
+    # Force to string, lowercase, and strip whitespace to prevent parsing errors
+    label = str(result['label']).lower().strip()
+    score = float(result['score'])
     
-    if label == 'positive':
+    # Explicitly catch text values and raw layer indices (LABEL_0, LABEL_1, LABEL_2)
+    if label in ['positive', 'label_2']:
         return score
-    elif label == 'negative':
+    elif label in ['negative', 'label_0']:
         return -score
+    elif label in ['neutral', 'label_1']:
+        return 0.0
     else:
+        # Fallback safeguard to prevent pipeline deadlocks
         return 0.0
 
 def process_player(player_name):
@@ -106,11 +112,14 @@ def process_player(player_name):
                 continue
 
             # --- 5. Noise Filter (Merch/Jersey/Memorabilia) ---
-            # Excludes marketing noise to keep the signal focused on performance scouting
+            # Added common string variations to handle missing spaces in spam text
             noise_keywords = [
                 'jersey', 'uniform', 'kit', 'signed', 'autograph', 
                 'trading card', 'panini', 'rookie card', 'patch', 'helmet',
-                'buy', 'sell', 'ebay', 'prizm', 'optic', 'eventbrite', 'audiobook'
+                'buy', 'sell', 'ebay', 'prizm', 'optic', 
+                'eventbrite', 'tickets', 'stubhub',
+                'audiobook', 'audio book', 'kindle',
+                'giveaway', 'contest', 'promo'
             ]
             if any(keyword in clean_text.lower() for keyword in noise_keywords):
                 continue
