@@ -7,11 +7,9 @@ from atproto import Client, Request
 from atproto_client.exceptions import InvokeTimeoutError
 from httpx import Timeout
 from supabase import create_client
-
-# 1. Import Transformers for the RoBERTa model
 from transformers import pipeline
 
-# Suppress the "UNEXPECTED" architectural warnings from transformers
+# Suppress architectural warnings from transformers
 logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 # --- Configuration ---
@@ -21,22 +19,14 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
-    missing = [name for name, val in {
-        "BSKY_HANDLE": BSKY_HANDLE,
-        "BSKY_PASSWORD": BSKY_PASSWORD,
-        "SUPABASE_URL": SUPABASE_URL,
-        "SUPABASE_KEY": SUPABASE_KEY
-    }.items() if not val]
-    raise ValueError(f"❌ Missing environment variables: {', '.join(missing)}")
+    raise ValueError("❌ Missing environment variables")
 
 # Initialize Supabase and Bluesky
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 custom_request = Request(timeout=Timeout(timeout=30.0))
 bsky_client = Client(request=custom_request)
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
-# 2. Initialize the RoBERTa Sentiment Pipeline
 print("⏳ Loading RoBERTa model...")
 sentiment_task = pipeline(
     "sentiment-analysis", 
@@ -50,24 +40,11 @@ def get_player_list():
     return [p['player_name'] for p in response.data]
 
 def map_roberta_to_scale(result):
-    """
-    Converts RoBERTa label/score to the dashboard's -1.0 to 1.0 scale.
-    Robustly handles string labels, capitalized labels, and raw model indices.
-    """
-    # Force to string, lowercase, and strip whitespace to prevent parsing errors
     label = str(result['label']).lower().strip()
     score = float(result['score'])
-    
-    # Explicitly catch text values and raw layer indices (LABEL_0, LABEL_1, LABEL_2)
-    if label in ['positive', 'label_2']:
-        return score
-    elif label in ['negative', 'label_0']:
-        return -score
-    elif label in ['neutral', 'label_1']:
-        return 0.0
-    else:
-        # Fallback safeguard to prevent pipeline deadlocks
-        return 0.0
+    if label in ['positive', 'label_2']: return score
+    elif label in ['negative', 'label_0']: return -score
+    else: return 0.0
 
 def process_player(player_name):
     print(f"🔍 Processing: {player_name}")
@@ -79,74 +56,97 @@ def process_player(player_name):
     end_of_yesterday = datetime.combine(yesterday, datetime.max.time()).replace(tzinfo=timezone.utc)
 
     search_query = f'"{player_name}"'
+    valid_posts = []
+    cursor = None
 
     try:
-        response = bsky_client.app.bsky.feed.search_posts(params={'q': search_query, 'limit': 100})
-        posts = response.posts
-        if not posts:
-            print(f"🕒 No posts found for {player_name}.")
+        # --- 1. Cursor Pagination ---
+        # Loop through up to 5 pages (500 posts) to ensure we reach yesterday's data
+        for _ in range(5):
+            response = bsky_client.app.bsky.feed.search_posts(
+                params={'q': search_query, 'limit': 100, 'sort': 'latest', 'cursor': cursor}
+            )
+            posts = response.posts
+            if not posts:
+                break
+            
+            reached_older_posts = False
+
+            for post in posts:
+                text = post.record.text
+                clean_text = text.replace('\n', ' ')
+                
+                if player_name.lower() not in clean_text.lower():
+                    continue
+
+                post_time = parser.isoparse(post.record.created_at)
+                if post_time.tzinfo is None:
+                    post_time = post_time.replace(tzinfo=timezone.utc)
+                
+                # If we hit posts older than yesterday, stop paginating entirely
+                if post_time < start_of_yesterday:
+                    reached_older_posts = True
+                    break
+
+                if not (start_of_yesterday <= post_time <= end_of_yesterday):
+                    continue
+
+                # Noise Filter
+                noise_keywords = [
+                    'jersey', 'uniform', 'kit', 'signed', 'autograph', 
+                    'trading card', 'panini', 'rookie card', 'patch', 'helmet',
+                    'buy', 'sell', 'ebay', 'prizm', 'optic', 
+                    'eventbrite', 'tickets', 'stubhub',
+                    'audiobook', 'audio book', 'kindle',
+                    'giveaway', 'contest', 'promo'
+                ]
+                if any(keyword in clean_text.lower() for keyword in noise_keywords):
+                    continue
+                
+                # Append valid posts to list for Batch Inference
+                valid_posts.append({"raw": text, "clean": clean_text[:512]})
+            
+            # Break the page loop if we've traveled far enough back in time
+            if reached_older_posts or not response.cursor:
+                break
+                
+            cursor = response.cursor
+
+        if not valid_posts:
+            print(f"🕒 No verified scouting posts for {player_name} on {yesterday}.")
+            return
+
+        # --- 2. Batch Inference ---
+        texts_to_analyze = [p["clean"] for p in valid_posts]
+        try:
+            # Send the entire list of strings to PyTorch at once
+            model_results = sentiment_task(texts_to_analyze)
+        except Exception as e:
+            print(f"⚠️ Model error during batch inference: {e}")
             return
 
         total_sentiment = 0
-        count = 0
-
         max_pos_score = -1.1 
         max_pos_text = ""
         min_neg_score = 1.1  
         min_neg_text = ""
 
-        for post in posts:
-            text = post.record.text
-            clean_text = text.replace('\n', ' ')
+        # Map results back to the original text
+        for post_data, result in zip(valid_posts, model_results):
+            score = map_roberta_to_scale(result)
+            text = post_data["raw"]
             
-            # --- 3. Filter: Name Check ---
-            if player_name.lower() not in clean_text.lower():
-                continue
-
-            # --- 4. Filter: Time Window ---
-            post_time = parser.isoparse(post.record.created_at)
-            if post_time.tzinfo is None:
-                post_time = post_time.replace(tzinfo=timezone.utc)
+            if score > max_pos_score:
+                max_pos_score = score
+                max_pos_text = text
             
-            if not (start_of_yesterday <= post_time <= end_of_yesterday):
-                continue
+            if score < min_neg_score:
+                min_neg_score = score
+                min_neg_text = text
 
-            # --- 5. Noise Filter (Merch/Jersey/Memorabilia) ---
-            # Added common string variations to handle missing spaces in spam text
-            noise_keywords = [
-                'jersey', 'uniform', 'kit', 'signed', 'autograph', 
-                'trading card', 'panini', 'rookie card', 'patch', 'helmet',
-                'buy', 'sell', 'ebay', 'prizm', 'optic', 
-                'eventbrite', 'tickets', 'stubhub',
-                'audiobook', 'audio book', 'kindle',
-                'giveaway', 'contest', 'promo'
-            ]
-            if any(keyword in clean_text.lower() for keyword in noise_keywords):
-                continue
+            total_sentiment += score
 
-            # --- 6. RoBERTa SENTIMENT LOGIC ---
-            try:
-                model_result = sentiment_task(clean_text[:512])[0]
-                score = map_roberta_to_scale(model_result)
-                
-                if score > max_pos_score:
-                    max_pos_score = score
-                    max_pos_text = text
-                
-                if score < min_neg_score:
-                    min_neg_score = score
-                    min_neg_text = text
-
-                total_sentiment += score
-                count += 1
-            except Exception as e:
-                print(f"⚠️ Model error on post: {e}")
-                continue
-
-        if count == 0:
-            print(f"🕒 No verified scouting posts for {player_name} on {yesterday}.")
-            return
-
+        count = len(valid_posts)
         avg_sentiment = total_sentiment / count
         
         data = {
@@ -170,7 +170,7 @@ def process_player(player_name):
 
 if __name__ == "__main__":
     players = get_player_list()
-    print(f"🚀 Starting daily worker for {len(players)} players...")
+    print(f"🚀 Starting RoBERTa-powered daily worker for {len(players)} players...")
     
     for player in players:
         process_player(player)
