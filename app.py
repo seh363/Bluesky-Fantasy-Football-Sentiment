@@ -7,7 +7,7 @@ from supabase import create_client, Client
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="Field Pulse · NFL Sentiment",
+    page_title="Bluesky NFL Sentiment",
     page_icon="🏈",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -340,10 +340,13 @@ def load_all_data():
 # ── Nav bar ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="nav-bar">
-    <div class="nav-logo">Field<span>Pulse</span></div>
+    <div>
+        <div class="nav-logo">Bluesky <span>NFL Sentiment</span></div>
+        <div style="font-family:'Inter',sans-serif; font-size:0.78rem; color:#475569; margin-top:3px; font-style:italic;">What the 'Official App of Sports' Thinks</div>
+    </div>
     <div class="nav-badge">
         <div class="pulse-dot"></div>
-        Live · Bluesky NFL Sentiment
+        Live · Updated Daily
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -441,7 +444,7 @@ if player_list:
         fig.add_hrect(
             y0=-0.05, y1=0.05,
             line_width=0,
-            fillcolor="#1e2d4722",
+            fillcolor="rgba(30,45,71,0.13)",
             layer="below"
         )
 
@@ -689,7 +692,7 @@ if player_list:
 st.markdown("""
 <div style="margin-top:3rem; padding-top:1.25rem; border-top:1px solid #1e2d47; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
     <span style="font-family:'Space Grotesk',sans-serif; font-size:0.72rem; color:#334155;">
-        FieldPulse · Data sourced from Bluesky · Updated daily
+        Bluesky NFL Sentiment · Data sourced from Bluesky · Updated daily
     </span>
     <span style="font-family:'Space Grotesk',sans-serif; font-size:0.72rem; color:#334155;">
         Built by <a href="https://bsky.app/profile/stephenhoopes.bsky.social" style="color:#00d4aa; text-decoration:none;">Stephen Hoopes</a>
