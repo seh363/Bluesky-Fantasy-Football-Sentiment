@@ -665,6 +665,13 @@ if player_list:
 
         # ── Today's Extremes ────────────────────────────────────────────────────
         latest_day = all_df[all_df['date'] == latest_date].copy()
+        st.write("latest_date value:", latest_date)
+        st.write("latest_date type:", type(latest_date))
+        st.write("date column dtype:", all_df['date'].dtype)
+        st.write("sample date values:", all_df['date'].head(5).tolist())
+        st.write("rows matching latest_date:", len(latest_day))
+        st.write("total rows in all_df:", len(all_df))
+        st.write("distinct dates:", sorted(all_df['date'].unique().tolist())[-5:])
         if not latest_day.empty:
             latest_day = latest_day.rename(columns={
                 'player_name': 'Player',
