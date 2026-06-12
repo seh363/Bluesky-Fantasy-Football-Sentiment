@@ -591,10 +591,17 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title rise">📈 Rising</div>', unsafe_allow_html=True)
                 risers = movers_df.sort_values('Δ 7 Days', ascending=False).head(5).reset_index(drop=True)
+                def color_pos(val):
+                    try:
+                        v = min(max(float(val) / 0.5, 0), 1)
+                        g = int(80 + 172 * v)
+                        return f'color: rgb(0,{g},120); font-weight: 600;'
+                    except:
+                        return ''
                 st.dataframe(
                     risers.style
                         .format({'Δ 7 Days': '{:+.3f}', 'Score': '{:+.3f}'})
-                        .background_gradient(subset=['Δ 7 Days'], cmap='Greens', vmin=0, vmax=0.5)
+                        .map(color_pos, subset=['Δ 7 Days'])
                         .set_properties(**{
                             'background-color': 'transparent',
                             'color': '#e2e8f0',
@@ -610,10 +617,17 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title fall">📉 Falling</div>', unsafe_allow_html=True)
                 fallers = movers_df.sort_values('Δ 7 Days', ascending=True).head(5).reset_index(drop=True)
+                def color_neg(val):
+                    try:
+                        v = min(max(float(val) / -0.5, 0), 1)
+                        r = int(150 + 94 * v)
+                        return f'color: rgb({r},40,80); font-weight: 600;'
+                    except:
+                        return ''
                 st.dataframe(
                     fallers.style
                         .format({'Δ 7 Days': '{:+.3f}', 'Score': '{:+.3f}'})
-                        .background_gradient(subset=['Δ 7 Days'], cmap='Reds_r', vmin=-0.5, vmax=0)
+                        .map(color_neg, subset=['Δ 7 Days'])
                         .set_properties(**{
                             'background-color': 'transparent',
                             'color': '#e2e8f0',
@@ -648,10 +662,17 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title rise">🔥 Highest Sentiment</div>', unsafe_allow_html=True)
                 high_df = latest_day.sort_values('Score', ascending=False).head(5)
+                def color_score_pos(val):
+                    try:
+                        v = min(max(float(val), 0), 1)
+                        g = int(80 + 172 * v)
+                        return f'color: rgb(0,{g},120); font-weight: 600;'
+                    except:
+                        return ''
                 st.dataframe(
                     high_df[['Player', 'Score', 'Most Positive Post']]
                         .style.format({'Score': '{:+.3f}'})
-                        .background_gradient(subset=['Score'], cmap='Greens', vmin=0, vmax=1)
+                        .map(color_score_pos, subset=['Score'])
                         .set_properties(**{
                             'background-color': 'transparent',
                             'color': '#e2e8f0',
@@ -670,10 +691,17 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title fall">🧊 Lowest Sentiment</div>', unsafe_allow_html=True)
                 low_df = latest_day.sort_values('Score', ascending=True).head(5)
+                def color_score_neg(val):
+                    try:
+                        v = min(max(float(val) / -1, 0), 1)
+                        r = int(150 + 94 * v)
+                        return f'color: rgb({r},40,80); font-weight: 600;'
+                    except:
+                        return ''
                 st.dataframe(
                     low_df[['Player', 'Score', 'Most Negative Post']]
                         .style.format({'Score': '{:+.3f}'})
-                        .background_gradient(subset=['Score'], cmap='Reds_r', vmin=-1, vmax=0)
+                        .map(color_score_neg, subset=['Score'])
                         .set_properties(**{
                             'background-color': 'transparent',
                             'color': '#e2e8f0',
