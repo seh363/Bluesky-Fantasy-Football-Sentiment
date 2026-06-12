@@ -600,7 +600,7 @@ if player_list:
                         return ''
                 st.dataframe(
                     risers.style
-                        .format({'Δ 7 Days': '{:+.3f}', 'Score': '{:+.3f}'})
+                        .format({'Δ 7 Days': '{:+.2f}', 'Score': '{:+.2f}'})
                         .map(color_pos, subset=['Δ 7 Days'])
                         .set_properties(**{
                             'background-color': 'transparent',
@@ -626,7 +626,7 @@ if player_list:
                         return ''
                 st.dataframe(
                     fallers.style
-                        .format({'Δ 7 Days': '{:+.3f}', 'Score': '{:+.3f}'})
+                        .format({'Δ 7 Days': '{:+.2f}', 'Score': '{:+.2f}'})
                         .map(color_neg, subset=['Δ 7 Days'])
                         .set_properties(**{
                             'background-color': 'transparent',
@@ -671,7 +671,7 @@ if player_list:
                         return ''
                 st.dataframe(
                     high_df[['Player', 'Score', 'Most Positive Post']]
-                        .style.format({'Score': '{:+.3f}'})
+                        .style.format({'Score': '{:+.2f}'})
                         .map(color_score_pos, subset=['Score'])
                         .set_properties(**{
                             'background-color': 'transparent',
@@ -700,7 +700,7 @@ if player_list:
                         return ''
                 st.dataframe(
                     low_df[['Player', 'Score', 'Most Negative Post']]
-                        .style.format({'Score': '{:+.3f}'})
+                        .style.format({'Score': '{:+.2f}'})
                         .map(color_score_neg, subset=['Score'])
                         .set_properties(**{
                             'background-color': 'transparent',
