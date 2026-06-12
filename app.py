@@ -97,6 +97,7 @@ html, body, [class*="css"] {
 .kpi-grid { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
 .kpi-card {
     flex: 1;
+    min-width: 0;
     background: #111827;
     border: 1px solid #1e2d47;
     border-radius: 14px;
@@ -123,6 +124,9 @@ html, body, [class*="css"] {
     color: #64748b;
     margin-bottom: 0.4rem;
     font-family: 'Space Grotesk', sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .kpi-value {
     font-family: 'Space Grotesk', sans-serif;
@@ -139,10 +143,27 @@ html, body, [class*="css"] {
     font-size: 0.78rem;
     font-weight: 500;
     margin-top: 0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .kpi-delta.up { color: #00d4aa; }
 .kpi-delta.down { color: #f43f5e; }
 .kpi-delta.flat { color: #64748b; }
+
+/* ── Mobile: stack KPI cards 2×2, shrink font ── */
+@media (max-width: 640px) {
+    .block-container { padding: 0 0.75rem 1.5rem 0.75rem !important; }
+    .kpi-grid { flex-wrap: wrap; gap: 0.6rem; }
+    .kpi-card { flex: 1 1 calc(50% - 0.3rem); padding: 0.85rem 1rem; }
+    .kpi-value { font-size: 1.5rem; }
+    .kpi-label { font-size: 0.62rem; }
+    .kpi-delta { font-size: 0.68rem; }
+    .nav-logo { font-size: 1.1rem; }
+    .nav-badge { font-size: 0.62rem; padding: 3px 8px; }
+    .score-hint { display: none !important; }
+    .score-guide-strip { gap: 0.4rem !important; }
+}
 
 /* ── Chart container ── */
 .chart-container {
@@ -369,12 +390,12 @@ Sentiment is calculated daily from Bluesky posts using NLP. Scores range from <s
 
 # ── Score guide strip ────────────────────────────────────────────────────────────
 st.markdown("""
-<div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.75rem; flex-wrap:wrap;">
-    <span style="font-size:0.7rem; color:#475569; font-family:'Space Grotesk',sans-serif; text-transform:uppercase; letter-spacing:0.08em; font-weight:500;">Sentiment scale</span>
+<div class="score-guide-strip" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.75rem; flex-wrap:wrap;">
+    <span style="font-size:0.7rem; color:#475569; font-family:'Space Grotesk',sans-serif; text-transform:uppercase; letter-spacing:0.08em; font-weight:500;">Scale</span>
     <span class="score-chip pos">+1.0 Peak hype</span>
     <span class="score-chip neu">0.0 Neutral</span>
-    <span class="score-chip neg">−1.0 Heavy criticism</span>
-    <span style="font-size:0.7rem; color:#334155; margin-left:auto;">Chart line = 7-day trend</span>
+    <span class="score-chip neg">−1.0 Criticism</span>
+    <span class="score-hint" style="font-size:0.7rem; color:#334155; margin-left:auto;">Chart line = 7-day trend</span>
 </div>
 """, unsafe_allow_html=True)
 
