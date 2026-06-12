@@ -343,7 +343,7 @@ def load_player_data(player):
     response = supabase.table("daily_sentiment").select("*").eq("player_name", player).execute()
     df = pd.DataFrame(response.data)
     if not df.empty:
-        df['date'] = pd.to_datetime(df['date']).dt.date
+        df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
         df = df.sort_values(by='date')
         df['7_Day_SMA'] = df['average_sentiment'].rolling(window=7, min_periods=1).mean()
         df['dod_change'] = df['average_sentiment'].diff()
@@ -351,10 +351,22 @@ def load_player_data(player):
 
 @st.cache_data(ttl=3600)
 def load_all_data():
-    response = supabase.table("daily_sentiment").select("*").execute()
-    df = pd.DataFrame(response.data)
+    all_rows = []
+    page_size = 1000
+    offset = 0
+    while True:
+        response = supabase.table("daily_sentiment").select("*").range(offset, offset + page_size - 1).execute()
+        batch = response.data
+        if not batch:
+            break
+        all_rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+
+    df = pd.DataFrame(all_rows)
     if not df.empty:
-        df['date'] = pd.to_datetime(df['date']).dt.date
+        df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.date
         df = df.sort_values(by=['player_name', 'date'])
     return df
 
@@ -665,13 +677,6 @@ if player_list:
 
         # ── Today's Extremes ────────────────────────────────────────────────────
         latest_day = all_df[all_df['date'] == latest_date].copy()
-        st.write("latest_date value:", latest_date)
-        st.write("latest_date type:", type(latest_date))
-        st.write("date column dtype:", all_df['date'].dtype)
-        st.write("sample date values:", all_df['date'].head(5).tolist())
-        st.write("rows matching latest_date:", len(latest_day))
-        st.write("total rows in all_df:", len(all_df))
-        st.write("distinct dates:", sorted(all_df['date'].unique().tolist())[-5:])
         if not latest_day.empty:
             latest_day = latest_day.rename(columns={
                 'player_name': 'Player',
