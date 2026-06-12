@@ -343,7 +343,7 @@ def load_player_data(player):
     response = supabase.table("daily_sentiment").select("*").eq("player_name", player).execute()
     df = pd.DataFrame(response.data)
     if not df.empty:
-        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = pd.to_datetime(df['date']).dt.date
         df = df.sort_values(by='date')
         df['7_Day_SMA'] = df['average_sentiment'].rolling(window=7, min_periods=1).mean()
         df['dod_change'] = df['average_sentiment'].diff()
@@ -354,7 +354,7 @@ def load_all_data():
     response = supabase.table("daily_sentiment").select("*").execute()
     df = pd.DataFrame(response.data)
     if not df.empty:
-        df['date'] = pd.to_datetime(df['date'])
+        df['date'] = pd.to_datetime(df['date']).dt.date
         df = df.sort_values(by=['player_name', 'date'])
     return df
 
@@ -473,11 +473,12 @@ if player_list:
         if len(selected_players) == 1:
             df_full = load_player_data(selected_players[0])
             if not df_full.empty:
+                from datetime import timedelta as td
                 max_date = df_full['date'].max()
                 if timeframe == "14 days":
-                    chart_df = df_full[df_full['date'] >= max_date - pd.Timedelta(days=14)]
+                    chart_df = df_full[df_full['date'] >= max_date - td(days=14)]
                 elif timeframe == "30 days":
-                    chart_df = df_full[df_full['date'] >= max_date - pd.Timedelta(days=30)]
+                    chart_df = df_full[df_full['date'] >= max_date - td(days=30)]
                 else:
                     chart_df = df_full
 
@@ -520,11 +521,12 @@ if player_list:
         for i, player in enumerate(selected_players):
             df = load_player_data(player)
             if not df.empty:
+                from datetime import timedelta as td
                 max_date = df['date'].max()
                 if timeframe == "14 days":
-                    chart_df = df[df['date'] >= max_date - pd.Timedelta(days=14)]
+                    chart_df = df[df['date'] >= max_date - td(days=14)]
                 elif timeframe == "30 days":
-                    chart_df = df[df['date'] >= max_date - pd.Timedelta(days=30)]
+                    chart_df = df[df['date'] >= max_date - td(days=30)]
                 else:
                     chart_df = df
 
@@ -584,8 +586,9 @@ if player_list:
     # ── Movers Section ──────────────────────────────────────────────────────────
     all_df = load_all_data()
     if not all_df.empty:
+        from datetime import timedelta as td
         latest_date = all_df['date'].max()
-        seven_days_ago = latest_date - pd.Timedelta(days=7)
+        seven_days_ago = latest_date - td(days=7)
         recent_df = all_df[all_df['date'] >= seven_days_ago].copy()
         grouped = recent_df.groupby('player_name')['average_sentiment']
         shifts = (grouped.last() - grouped.first()).reset_index()
