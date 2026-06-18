@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 from datetime import datetime, timedelta, timezone
@@ -84,10 +85,45 @@ NOISE_KEYWORDS = [
     'woke', 'pronouns', 'cancel culture', 'deep state',
 ]
 
+# ---------------------------------------------------------------------------
+# Player name exclusions — handles cases where a tracked player's name is a
+# substring of an unrelated public figure's name (e.g. "Jonathan Taylor" vs.
+# "Jonathan Taylor Thomas" the actor). Add new collisions here as you spot them.
+#
+# NOTE: for easier long-term maintenance, consider moving this into a
+# Supabase column (e.g. tracked_players.exclusions as a text[] column) and
+# loading it via get_player_list() instead of hardcoding it here. That lets
+# you add new collisions without redeploying the worker.
+# ---------------------------------------------------------------------------
+PLAYER_EXCLUSIONS = {
+    "Jonathan Taylor": ["jonathan taylor thomas"],
+}
+
 
 def get_player_list():
     response = supabase.table("tracked_players").select("player_name").execute()
     return [p['player_name'] for p in response.data]
+
+
+def is_relevant_mention(clean_text, player_name):
+    """Check that the player name appears, and isn't only part of an
+    excluded longer name (e.g. a same-named celebrity)."""
+    lower_text = clean_text.lower()
+    lower_player = player_name.lower()
+
+    if lower_player not in lower_text:
+        return False
+
+    exclusions = PLAYER_EXCLUSIONS.get(player_name, [])
+    for excluded_phrase in exclusions:
+        if excluded_phrase in lower_text:
+            # Remove the excluded phrase, then check if the player name
+            # still appears on its own elsewhere in the text.
+            stripped = lower_text.replace(excluded_phrase, '')
+            if lower_player not in stripped:
+                return False
+
+    return True
 
 
 def map_roberta_to_scale(result):
@@ -153,6 +189,7 @@ def process_player(player_name, target_date):
     search_query  = f'"{player_name}"'
     valid_posts   = []
     filtered_count = 0
+    excluded_count = 0   # posts dropped due to name collision (e.g. celebrity namesake)
     seen_uris     = set()   # deduplicate across pages
     cursor        = None
 
@@ -174,8 +211,11 @@ def process_player(player_name, target_date):
                 text       = post.record.text
                 clean_text = text.replace('\n', ' ')
 
-                # Must explicitly mention the player by name
-                if player_name.lower() not in clean_text.lower():
+                # Must explicitly mention the player by name, and not be a
+                # false-positive match against an excluded namesake.
+                if not is_relevant_mention(clean_text, player_name):
+                    if player_name.lower() in clean_text.lower():
+                        excluded_count += 1
                     continue
 
                 post_time = parser.isoparse(post.record.created_at)
@@ -214,7 +254,7 @@ def process_player(player_name, target_date):
 
         if not valid_posts:
             log.info(f"  🕒 No valid posts for {player_name} on {target_date}. "
-                     f"(Filtered out: {filtered_count})")
+                     f"(Filtered out: {filtered_count}, excluded namesakes: {excluded_count})")
             return True  # not an error — just a quiet day
 
         # ── 2. Batch inference ──────────────────────────────────────────────────
@@ -262,7 +302,8 @@ def process_player(player_name, target_date):
         try:
             supabase.table("daily_sentiment").upsert(data).execute()
             log.info(f"  ✅ Saved {player_name} | Valid: {count} | "
-                     f"Filtered: {filtered_count} | Score: {avg_sentiment:.4f}")
+                     f"Filtered: {filtered_count} | Excluded namesakes: {excluded_count} | "
+                     f"Score: {avg_sentiment:.4f}")
         except Exception as e:
             log.error(f"  ❌ Supabase write failed for {player_name}: {e}")
             return False
