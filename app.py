@@ -372,17 +372,21 @@ def load_all_data():
 
 # ── Nav bar ─────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div class="nav-bar">
-    <div>
-        <div class="nav-logo">Bluesky <span>NFL Sentiment</span></div>
-        <div style="font-family:'Inter',sans-serif; font-size:0.78rem; color:#475569; margin-top:3px; font-style:italic;">What the 'Official App of Sports' Thinks</div>
-    </div>
-    <div class="nav-badge">
-        <div class="pulse-dot"></div>
-        Live · Updated Daily
-    </div>
-</div>
-""", unsafe_allow_html=True)
+   <div class="nav-bar">
+       <div>
+           <div class="nav-logo">Bluesky <span>NFL Sentiment</span></div>
+           <div style="font-family:'Inter',sans-serif; font-size:0.78rem; color:#475569; margin-top:3px; font-style:italic;">What the 'Official App of Sports' Thinks</div>
+       </div>
+       <div style="display:flex; align-items:center; gap:1rem;">
+           <a href="https://hoopesfootball.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Hoopes Football</a>
+           <a href="https://draftroom.hoopesfootball.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Sim Draft Room →</a>
+           <div class="nav-badge">
+               <div class="pulse-dot"></div>
+               Live · Updated Daily
+           </div>
+       </div>
+   </div>
+   """, unsafe_allow_html=True)
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────────
 with st.sidebar:
