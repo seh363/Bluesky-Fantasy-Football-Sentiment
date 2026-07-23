@@ -372,21 +372,21 @@ def load_all_data():
 
 # ── Nav bar ─────────────────────────────────────────────────────────────────────
 st.markdown("""
-   <div class="nav-bar">
-       <div>
-           <div class="nav-logo">Bluesky <span>NFL Sentiment</span></div>
-           <div style="font-family:'Inter',sans-serif; font-size:0.78rem; color:#475569; margin-top:3px; font-style:italic;">What the 'Official App of Sports' Thinks</div>
-       </div>
-       <div style="display:flex; align-items:center; gap:1rem;">
-           <a href="https://hoopesfootball.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Hoopes Football</a>
-           <a href="https://hoopes-draft-room.onrender.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Sim Draft Room →</a>
-           <div class="nav-badge">
-               <div class="pulse-dot"></div>
-               Live · Updated Daily
-           </div>
-       </div>
-   </div>
-   """, unsafe_allow_html=True)
+<div class="nav-bar">
+    <div>
+        <div class="nav-logo">Bluesky <span>NFL Sentiment</span></div>
+        <div style="font-family:'Inter',sans-serif; font-size:0.78rem; color:#475569; margin-top:3px; font-style:italic;">What the 'Official App of Sports' Thinks</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:1rem;">
+        <a href="https://hoopesfootball.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Hoopes Football</a>
+        <a href="https://hoopes-draft-room.onrender.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Sim Draft Room →</a>
+        <div class="nav-badge">
+            <div class="pulse-dot"></div>
+            Live · Updated Daily
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -627,29 +627,26 @@ if player_list:
 
             col_rise, col_fall = st.columns(2, gap="medium")
 
+            # NOTE: previously these used pandas .style.format()/.map() Styler objects
+            # passed to st.dataframe(). That path (Styler -> Arrow serialization) is a
+            # known source of native-level crashes on some pandas/pyarrow/streamlit
+            # version combinations -- it can segfault the whole process instead of
+            # raising a catchable Python exception. Plain DataFrames + column_config
+            # avoid that serialization path entirely. The per-cell red/green intensity
+            # coloring is dropped as a result; the +/- sign and 2-decimal formatting
+            # is preserved via column_config's NumberColumn format string.
             with col_rise:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title rise">📈 Rising</div>', unsafe_allow_html=True)
                 risers = movers_df.sort_values('Δ 7 Days', ascending=False).head(5).reset_index(drop=True)
-                def color_pos(val):
-                    try:
-                        v = min(max(float(val) / 0.5, 0), 1)
-                        g = int(80 + 172 * v)
-                        return f'color: rgb(0,{g},120); font-weight: 600;'
-                    except:
-                        return ''
                 st.dataframe(
-                    risers.style
-                        .format({'Δ 7 Days': '{:+.2f}', 'Score': '{:+.2f}'})
-                        .map(color_pos, subset=['Δ 7 Days'])
-                        .set_properties(**{
-                            'background-color': 'transparent',
-                            'color': '#e2e8f0',
-                            'font-family': 'Space Grotesk, sans-serif',
-                            'font-size': '13px',
-                        }),
+                    risers,
                     hide_index=True,
-                    use_container_width=True
+                    use_container_width=True,
+                    column_config={
+                        "Δ 7 Days": st.column_config.NumberColumn("Δ 7 Days", format="%+.2f"),
+                        "Score": st.column_config.NumberColumn("Score", format="%+.2f"),
+                    }
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -657,25 +654,14 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title fall">📉 Falling</div>', unsafe_allow_html=True)
                 fallers = movers_df.sort_values('Δ 7 Days', ascending=True).head(5).reset_index(drop=True)
-                def color_neg(val):
-                    try:
-                        v = min(max(float(val) / -0.5, 0), 1)
-                        r = int(150 + 94 * v)
-                        return f'color: rgb({r},40,80); font-weight: 600;'
-                    except:
-                        return ''
                 st.dataframe(
-                    fallers.style
-                        .format({'Δ 7 Days': '{:+.2f}', 'Score': '{:+.2f}'})
-                        .map(color_neg, subset=['Δ 7 Days'])
-                        .set_properties(**{
-                            'background-color': 'transparent',
-                            'color': '#e2e8f0',
-                            'font-family': 'Space Grotesk, sans-serif',
-                            'font-size': '13px',
-                        }),
+                    fallers,
                     hide_index=True,
-                    use_container_width=True
+                    use_container_width=True,
+                    column_config={
+                        "Δ 7 Days": st.column_config.NumberColumn("Δ 7 Days", format="%+.2f"),
+                        "Score": st.column_config.NumberColumn("Score", format="%+.2f"),
+                    }
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -702,26 +688,12 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title rise">🔥 Highest Sentiment</div>', unsafe_allow_html=True)
                 high_df = latest_day.sort_values('Score', ascending=False).head(5)
-                def color_score_pos(val):
-                    try:
-                        v = min(max(float(val), 0), 1)
-                        g = int(80 + 172 * v)
-                        return f'color: rgb(0,{g},120); font-weight: 600;'
-                    except:
-                        return ''
                 st.dataframe(
-                    high_df[['Player', 'Score', 'Most Positive Post']]
-                        .style.format({'Score': '{:+.2f}'})
-                        .map(color_score_pos, subset=['Score'])
-                        .set_properties(**{
-                            'background-color': 'transparent',
-                            'color': '#e2e8f0',
-                            'font-family': 'Space Grotesk, sans-serif',
-                            'font-size': '13px',
-                        }),
+                    high_df[['Player', 'Score', 'Most Positive Post']],
                     hide_index=True,
                     use_container_width=True,
                     column_config={
+                        "Score": st.column_config.NumberColumn("Score", format="%+.2f"),
                         "Most Positive Post": st.column_config.TextColumn("Most Positive Post", width="large")
                     }
                 )
@@ -731,26 +703,12 @@ if player_list:
                 st.markdown('<div class="movers-card">', unsafe_allow_html=True)
                 st.markdown('<div class="movers-title fall">🧊 Lowest Sentiment</div>', unsafe_allow_html=True)
                 low_df = latest_day.sort_values('Score', ascending=True).head(5)
-                def color_score_neg(val):
-                    try:
-                        v = min(max(float(val) / -1, 0), 1)
-                        r = int(150 + 94 * v)
-                        return f'color: rgb({r},40,80); font-weight: 600;'
-                    except:
-                        return ''
                 st.dataframe(
-                    low_df[['Player', 'Score', 'Most Negative Post']]
-                        .style.format({'Score': '{:+.2f}'})
-                        .map(color_score_neg, subset=['Score'])
-                        .set_properties(**{
-                            'background-color': 'transparent',
-                            'color': '#e2e8f0',
-                            'font-family': 'Space Grotesk, sans-serif',
-                            'font-size': '13px',
-                        }),
+                    low_df[['Player', 'Score', 'Most Negative Post']],
                     hide_index=True,
                     use_container_width=True,
                     column_config={
+                        "Score": st.column_config.NumberColumn("Score", format="%+.2f"),
                         "Most Negative Post": st.column_config.TextColumn("Most Negative Post", width="large")
                     }
                 )
