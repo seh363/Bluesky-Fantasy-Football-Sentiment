@@ -379,7 +379,7 @@ st.markdown("""
        </div>
        <div style="display:flex; align-items:center; gap:1rem;">
            <a href="https://hoopesfootball.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Hoopes Football</a>
-           <a href="https://draftroom.hoopesfootball.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Sim Draft Room →</a>
+           <a href="https://hoopes-draft-room.onrender.com" style="font-family:'Space Grotesk',sans-serif; font-size:0.78rem; color:#94a3b8; text-decoration:none;">Sim Draft Room →</a>
            <div class="nav-badge">
                <div class="pulse-dot"></div>
                Live · Updated Daily
