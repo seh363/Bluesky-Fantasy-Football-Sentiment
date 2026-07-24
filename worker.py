@@ -4,9 +4,8 @@ import time
 import logging
 from datetime import datetime, timedelta, timezone
 from dateutil import parser
-from atproto import Client, Request
+from atproto import Client
 from atproto_client.exceptions import InvokeTimeoutError
-from httpx import Timeout
 from supabase import create_client
 from transformers import pipeline
 
@@ -37,8 +36,9 @@ if not all([BSKY_HANDLE, BSKY_PASSWORD, SUPABASE_URL, SUPABASE_KEY]):
 
 # Initialize Supabase and Bluesky
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-custom_request = Request(timeout=Timeout(timeout=30.0))
-bsky_client = Client(request=custom_request)
+
+# Standard client initialization - your retry logic handles timeouts natively
+bsky_client = Client()
 bsky_client.login(BSKY_HANDLE, BSKY_PASSWORD)
 
 log.info("⏳ Loading RoBERTa model...")
@@ -190,7 +190,7 @@ def process_player(player_name, target_date):
     valid_posts   = []
     filtered_count = 0
     excluded_count = 0   # posts dropped due to name collision (e.g. celebrity namesake)
-    seen_uris     = set()   # deduplicate across pages
+    seen_uris     = set()    # deduplicate across pages
     cursor        = None
 
     try:
